@@ -1668,13 +1668,19 @@ async function loadLibrary() {
 }
 
 (async function init() {
+  const oauth = drive.handleRedirect(); // vuelta del inicio de sesión de Google (móvil)
   history.replaceState({ app: 'sonora', guard: true }, '');
   paintIcons();
   updatePlayIcons(); updateModes(); updateVolumeUI(); updateNowPlaying();
   try { await DB.open(); } catch (e) { console.warn(e); toast('Sin almacenamiento: tu música no se guardará al cerrar'); }
   if (cloud.init()) await cloud.restore().catch(e => console.warn(e));
-  drive.restore();
+  if (!oauth?.ok) drive.restore();
   await loadLibrary();
+  if (oauth?.error) toast(oauth.error);
+  else if (oauth?.ok) {
+    if (oauth.after === 'pick' || !drive.enabled) openFolderPicker();
+    else toast('Conectado a Google Drive'); // loadLibrary ya buscó canciones nuevas
+  }
   navigator.storage?.persist?.().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

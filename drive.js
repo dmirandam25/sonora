@@ -90,12 +90,50 @@ const drive = {
     this.pending = this._res = this._rej = null;
     err ? rej?.(err) : res?.(token);
   },
-  // Con interactive, si la sesión venció abre la ventana de Google. Llamarla dentro
-  // de un clic (sin await antes) para que el navegador no bloquee esa ventana.
-  getToken(interactive = true) {
+  // En el móvil (y en la app instalada) la ventana emergente de Google no vuelve bien a
+  // la app, así que se va a la página de Google en la misma pantalla y Google devuelve
+  // a Sonora con el permiso en la dirección (#access_token=…).
+  get useRedirect() {
+    return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
+      || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  },
+  redirectUri() { return location.origin + location.pathname.replace(/index\.html$/, ''); },
+  startRedirect(after = 'refresh') {
+    const state = uid();
+    ls.set('sonora-drive-oauth', { state, after, at: Date.now() });
+    const p = new URLSearchParams({
+      client_id: this.clientId(), redirect_uri: this.redirectUri(), response_type: 'token',
+      scope: DRIVE_SCOPE, include_granted_scopes: 'true', state,
+    });
+    location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p);
+  },
+  // Al volver de Google: guarda el permiso y limpia la dirección. Devuelve qué hacer después.
+  handleRedirect() {
+    const hash = location.hash.slice(1);
+    if (!/(^|&)(access_token|error)=/.test(hash)) return null;
+    const h = new URLSearchParams(hash);
+    const saved = ls.get('sonora-drive-oauth', null);
+    ls.set('sonora-drive-oauth', null);
+    history.replaceState(history.state, '', location.pathname + location.search);
+    if (!saved || h.get('state') !== saved.state || Date.now() - saved.at > 15 * 60_000) return { error: 'La respuesta de Google no coincide con esta sesión. Vuelve a conectar Drive' };
+    if (h.get('error')) return { error: h.get('error') === 'access_denied' ? 'No diste permiso para leer tu Drive' : 'Google respondió: ' + h.get('error') };
+    if (!(h.get('scope') || '').split(' ').includes(DRIVE_SCOPE)) return { error: 'Falta el permiso para ver tus archivos de Drive. Vuelve a conectar y marca esa casilla' };
+    this.token = h.get('access_token');
+    this.exp = Date.now() + (+h.get('expires_in') || 3600) * 1000;
+    ls.set('sonora-drive-token', { token: this.token, exp: this.exp });
+    return { ok: true, after: saved.after };
+  },
+  // Con interactive, si la sesión venció pide entrar con Google. Llamarla dentro de un
+  // clic (sin await antes) para que el navegador no bloquee la ventana. En el móvil sale
+  // de la app hacia Google y vuelve (after dice qué hacer al volver).
+  getToken(interactive = true, after = 'refresh') {
     if (this.connected) return Promise.resolve(this.token);
     if (!interactive) return Promise.reject(new Error('La sesión de Google Drive venció'));
     if (this.pending) return this.pending;
+    if (this.useRedirect && this.configured) {
+      this.startRedirect(after);
+      return new Promise(() => {}); // la página se va a Google
+    }
     if (!this.initClient()) return Promise.reject(new Error(this.configured ? 'No se pudo cargar el inicio de sesión de Google. ¿Hay conexión?' : 'Falta configurar Google Drive'));
     this.pending = new Promise((res, rej) => { this._res = res; this._rej = rej; });
     this.tokenClient.requestAccessToken({ prompt: '' });
@@ -377,7 +415,7 @@ function openDrivePanel() {
         class="mt-1 w-full rounded-md bg-white/10 border border-transparent focus:border-zinc-300 outline-none px-3 py-2 select-text"></label>
     <p data-d="err" class="text-sm text-red-400 hidden"></p>
     <div class="flex justify-end gap-2"><button type="button" data-d="close" class="${ghost}">Cancelar</button><button class="${primary}">Guardar</button></div>`;
-  else if (!window.google?.accounts?.oauth2) body = `
+  else if (!drive.useRedirect && !window.google?.accounts?.oauth2) body = `
     <p class="text-zinc-300">No se pudo cargar el inicio de sesión de Google. Revisa tu conexión a internet y vuelve a abrir esta ventana.</p>
     <div class="flex justify-end"><button type="button" data-d="close" class="${primary}">Entendido</button></div>`;
   else if (!f) body = `
@@ -414,8 +452,7 @@ function openDrivePanel() {
   s.form.addEventListener('click', e => {
     const d = e.target.closest('[data-d]')?.dataset.d;
     if (d === 'close') s.close();
-    else if (d === 'connect') drive.getToken(true).then(() => { s.close(); openFolderPicker(); }).catch(err => s.showErr(err.message));
-    else if (d === 'folder') drive.getToken(true).then(() => { s.close(); openFolderPicker(); }).catch(err => s.showErr(err.message));
+    else if (d === 'connect' || d === 'folder') drive.getToken(true, 'pick').then(() => { s.close(); openFolderPicker(); }).catch(err => s.showErr(err.message));
     else if (d === 'refresh') { s.close(); drive.refresh(true); }
     else if (d === 'order') {
       drive.saveSettings({ nameOrder: drive.titleFirst ? 'artist-title' : 'title-artist' });
