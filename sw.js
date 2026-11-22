@@ -1,6 +1,6 @@
 // Guarda la app (no la música) para que abra sin conexión.
-const CACHE = 'sonora-v3';
-const APP = ['./', './index.html', './drive.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'sonora-v4';
+const APP = ['./', './index.html', './drive.js?v=4','./manifest.webmanifest', './icon-192.png', './icon-512.png'];
 // Google (inicio de sesión y Drive) va siempre directo a la red: no está en CDN.
 const CDN = ['cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -22,16 +22,18 @@ self.addEventListener('fetch', e => {
   if (!sameOrigin && !CDN.includes(url.hostname)) return; // audio de enlaces: directo a la red
 
   // La página: primero la red (para recibir actualizaciones), si falla, la copia guardada.
+  // GitHub Pages pide guardar los archivos 10 min: 'no-cache' pregunta siempre al servidor
+  // si hay versión nueva (si no la hay, responde rápido sin volver a bajarla).
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req)
-      .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return res; })
+    e.respondWith(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin', redirect: 'manual' })
+      .then(res => { if (res.status === 200) { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)).catch(() => {}); } return res; })
       .catch(() => caches.match('./index.html')));
     return;
   }
 
   // Archivos de la app (drive.js, íconos…): primero la red, para no mezclar versiones con index.html.
   if (sameOrigin) {
-    e.respondWith(fetch(req)
+    e.respondWith(fetch(new Request(req, { cache: 'no-cache' }))
       .then(res => { if (res.status === 200 && !req.headers.has('range')) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {}); } return res; })
       .catch(() => caches.match(req)));
     return;
