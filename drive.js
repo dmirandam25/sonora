@@ -51,7 +51,10 @@ const drive = {
 
   settings() { return ls.get('sonora-drive', {}) || {}; },
   saveSettings(patch) { ls.set('sonora-drive', { ...this.settings(), ...patch }); },
-  clientId() { return this.settings().clientId || DRIVE_CLIENT_ID; },
+  clientId() {
+    const id = this.settings().clientId || DRIVE_CLIENT_ID;
+    return id.match(/[\w-]+\.apps\.googleusercontent\.com/i)?.[0] || id;
+  },
   get configured() { return !!this.clientId(); },
   get folder() { return this.settings().folder || null; },
   get enabled() { return !!this.folder; },
@@ -466,8 +469,10 @@ function openDrivePanel() {
   });
   s.form.addEventListener('submit', e => {
     e.preventDefault();
-    const id = String(new FormData(s.form).get('clientId') || '').trim();
-    if (!/^[\w-]+\.apps\.googleusercontent\.com$/.test(id)) return s.showErr('El ID de cliente termina en .apps.googleusercontent.com');
+    // Acepta el ID aunque se pegue con https://, espacios o una barra al final.
+    const raw = String(new FormData(s.form).get('clientId') || '');
+    const id = raw.replace(/\s+/g, '').match(/[\w-]+\.apps\.googleusercontent\.com/i)?.[0];
+    if (!id) return s.showErr('No encontré el ID de cliente. Debe terminar en .apps.googleusercontent.com (cópialo de Google Cloud → Credenciales)');
     drive.saveSettings({ clientId: id }); drive.tokenClient = null; drive.forget();
     s.close(); openDrivePanel();
   });
