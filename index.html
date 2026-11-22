@@ -1,0 +1,1696 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sonora</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%2322c55e'/%3E%3Cpath d='M9 19v-6M13 22V10M17 20v-8M21 17v-2' stroke='%23000' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Figtree', 'system-ui', 'sans-serif'] },
+        colors: { accent: { DEFAULT: '#22c55e', hover: '#4ade80' }, panel: '#121212', elev: '#1f1f1f' }
+      }
+    }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="drive.js"></script>
+<style>
+  html, body { background: #000; }
+  * { -webkit-tap-highlight-color: transparent; }
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border: 3px solid transparent; background-clip: padding-box; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.3); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  input[type=range].rng { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 9999px; cursor: pointer; outline: none;
+    background: linear-gradient(to right, var(--fill, #fff) var(--p, 0%), rgba(255,255,255,.3) var(--p, 0%)); }
+  input[type=range].rng:hover, input[type=range].rng:focus-visible { --fill: #22c55e; }
+  input[type=range].rng::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; opacity: 0; transition: opacity .15s; }
+  input[type=range].rng::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; opacity: 0; }
+  input[type=range].rng:hover::-webkit-slider-thumb, input[type=range].rng:active::-webkit-slider-thumb { opacity: 1; }
+  input[type=range].rng:hover::-moz-range-thumb { opacity: 1; }
+  @media (hover: none) {
+    input[type=range].rng::-webkit-slider-thumb { opacity: 1; }
+    input[type=range].rng::-moz-range-thumb { opacity: 1; }
+  }
+
+  .ctl { position: relative; color: #b3b3b3; transition: color .15s, transform .1s; }
+  .ctl:hover { color: #fff; }
+  .ctl:active { transform: scale(.94); }
+  .ctl.on { color: #22c55e; }
+  .ctl.on::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #22c55e; }
+  .ctl .badge { display: none; }
+  .ctl.one .badge { display: grid; }
+
+  .is-playing .t-title, .is-playing .t-idx { color: #22c55e; }
+  .eq { display: none; }
+  .is-playing.playing-now .t-idx-num { display: none; }
+  .is-playing.playing-now .eq { display: inline-flex; }
+  .eq span { width: 3px; background: #22c55e; border-radius: 1px; animation: eq 1s ease-in-out infinite; }
+  .eq span:nth-child(2) { animation-delay: -.4s; }
+  .eq span:nth-child(3) { animation-delay: -.7s; }
+  @keyframes eq { 0%,100% { height: 3px; } 50% { height: 12px; } }
+
+  .toast-in { animation: toastIn .25s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .sheet-in { animation: sheetIn .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+</style>
+</head>
+<body class="font-sans text-white antialiased h-[100dvh] overflow-hidden select-none">
+
+<div class="h-full flex flex-col">
+  <div class="flex-1 min-h-0 flex gap-2 p-0 md:p-2">
+
+    <!-- Barra lateral -->
+    <aside class="hidden md:flex w-[300px] shrink-0 flex-col gap-2">
+      <nav class="bg-panel rounded-lg px-3 py-4 space-y-1">
+        <div class="flex items-center gap-2 px-3 pb-3">
+          <span class="w-8 h-8 rounded-full bg-accent grid place-items-center text-black" data-icon="logo"></span>
+          <span class="text-xl font-extrabold tracking-tight">Sonora</span>
+          <button data-act="cloud" data-bind="cloud-pill" title="Conectar a la nube" class="ml-auto w-8 h-8 rounded-full grid place-items-center text-zinc-400 hover:bg-white/10 transition"><span class="w-5 h-5" data-icon="cloud"></span></button>
+        </div>
+        <button data-act="nav" data-view="home" data-nav="home" class="nav-link w-full flex items-center gap-4 px-3 py-2 rounded-md font-bold text-zinc-400 hover:text-white transition">
+          <span class="w-6 h-6" data-icon="home"></span>Inicio
+        </button>
+        <button data-act="nav" data-view="search" data-nav="search" class="nav-link w-full flex items-center gap-4 px-3 py-2 rounded-md font-bold text-zinc-400 hover:text-white transition">
+          <span class="w-6 h-6" data-icon="search"></span>Buscar
+        </button>
+      </nav>
+
+      <section class="bg-panel rounded-lg flex-1 min-h-0 flex flex-col">
+        <div class="flex items-center justify-between px-4 pt-4 pb-2">
+          <button data-act="nav" data-view="library" class="flex items-center gap-3 font-bold text-zinc-400 hover:text-white transition">
+            <span class="w-6 h-6" data-icon="library"></span>Tu biblioteca
+          </button>
+          <button data-act="new-playlist" title="Crear playlist" class="w-8 h-8 rounded-full grid place-items-center text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <span class="w-5 h-5" data-icon="plus"></span>
+          </button>
+        </div>
+        <div class="flex gap-2 px-4 pb-3">
+          <button data-act="upload" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold transition">
+            <span class="w-4 h-4" data-icon="upload"></span>Agregar música
+          </button>
+          <button data-act="add-url" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold transition">
+            <span class="w-4 h-4" data-icon="link"></span>Enlace
+          </button>
+          <button data-act="drive" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold transition">
+            <span class="w-4 h-4" data-icon="folder"></span>Drive
+          </button>
+        </div>
+        <div id="sidebar-list" class="flex-1 min-h-0 overflow-y-auto px-2 pb-2"></div>
+      </section>
+    </aside>
+
+    <!-- Contenido central -->
+    <main id="main" class="flex-1 min-w-0 bg-panel md:rounded-lg overflow-y-auto overflow-x-hidden"></main>
+  </div>
+
+  <!-- Reproductor -->
+  <footer class="shrink-0 bg-black">
+    <!-- Escritorio -->
+    <div class="hidden md:grid grid-cols-[minmax(180px,1fr)_minmax(320px,2fr)_minmax(180px,1fr)] items-center gap-4 h-[80px] px-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-14 h-14 rounded overflow-hidden shrink-0 bg-elev" data-bind="cover"></div>
+        <div class="min-w-0">
+          <div class="text-sm font-semibold truncate" data-bind="title">Nada sonando</div>
+          <div class="text-xs text-zinc-400 truncate" data-bind="artist">Elige una canción</div>
+        </div>
+        <button data-act="like" data-bind="like" title="Me gusta" class="ctl w-8 h-8 shrink-0 grid place-items-center"><span class="w-5 h-5" data-icon="heart"></span></button>
+      </div>
+
+      <div class="flex flex-col items-center gap-1.5">
+        <div class="flex items-center gap-5">
+          <button data-act="shuffle" data-bind="shuffle" title="Aleatorio" class="ctl w-8 h-8 grid place-items-center"><span class="w-5 h-5" data-icon="shuffle"></span></button>
+          <button data-act="prev" title="Anterior" class="ctl w-8 h-8 grid place-items-center"><span class="w-6 h-6" data-icon="prev"></span></button>
+          <button data-act="toggle" title="Reproducir / Pausar (Espacio)" class="w-9 h-9 rounded-full bg-white text-black grid place-items-center hover:scale-105 active:scale-95 transition"><span class="w-6 h-6" data-bind="play-icon"></span></button>
+          <button data-act="next" title="Siguiente" class="ctl w-8 h-8 grid place-items-center"><span class="w-6 h-6" data-icon="next"></span></button>
+          <button data-act="repeat" data-bind="repeat" title="Repetir" class="ctl w-8 h-8 grid place-items-center">
+            <span class="w-5 h-5" data-icon="repeat"></span>
+            <span class="badge absolute top-0.5 right-0 w-3 h-3 rounded-full bg-accent text-black text-[8px] font-black place-items-center">1</span>
+          </button>
+        </div>
+        <div class="w-full flex items-center gap-2 text-[11px] text-zinc-400 tabular-nums">
+          <span class="w-10 text-right" data-bind="time">0:00</span>
+          <input type="range" class="rng flex-1" min="0" max="1000" value="0" step="1" data-bind="seek" aria-label="Progreso">
+          <span class="w-10" data-bind="duration">0:00</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2">
+        <button data-act="mute" data-bind="mute" title="Silenciar" class="ctl w-8 h-8 grid place-items-center"><span class="w-5 h-5" data-icon="volume"></span></button>
+        <input type="range" class="rng w-28" min="0" max="100" value="80" data-bind="volume" aria-label="Volumen">
+      </div>
+    </div>
+
+    <!-- Celular: mini reproductor -->
+    <div class="md:hidden px-2 pt-1">
+      <div id="mini" class="relative rounded-md overflow-hidden bg-elev transition-colors">
+        <div class="flex items-center gap-3 p-2">
+          <div data-act="open-now" class="flex items-center gap-3 flex-1 min-w-0">
+            <div class="w-10 h-10 rounded overflow-hidden shrink-0 bg-black/30" data-bind="cover"></div>
+            <div class="min-w-0">
+              <div class="text-sm font-semibold truncate" data-bind="title">Nada sonando</div>
+              <div class="text-xs text-zinc-300 truncate" data-bind="artist">Elige una canción</div>
+            </div>
+          </div>
+          <button data-act="like" data-bind="like" class="ctl w-9 h-9 grid place-items-center"><span class="w-6 h-6" data-icon="heart"></span></button>
+          <button data-act="toggle" class="w-9 h-9 grid place-items-center text-white"><span class="w-7 h-7" data-bind="play-icon"></span></button>
+        </div>
+        <div class="absolute left-2 right-2 bottom-0 h-[2px] bg-white/20 rounded-full overflow-hidden">
+          <div class="h-full bg-white" style="width:0%" data-bind="progress-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Celular: navegación -->
+    <nav class="md:hidden grid grid-cols-3 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] bg-gradient-to-t from-black via-black to-black/80">
+      <button data-act="nav" data-view="home" data-nav="home" class="nav-link flex flex-col items-center gap-1 text-[11px] text-zinc-400"><span class="w-6 h-6" data-icon="home"></span>Inicio</button>
+      <button data-act="nav" data-view="search" data-nav="search" class="nav-link flex flex-col items-center gap-1 text-[11px] text-zinc-400"><span class="w-6 h-6" data-icon="search"></span>Buscar</button>
+      <button data-act="nav" data-view="library" data-nav="library" class="nav-link flex flex-col items-center gap-1 text-[11px] text-zinc-400"><span class="w-6 h-6" data-icon="library"></span>Tu biblioteca</button>
+    </nav>
+  </footer>
+</div>
+
+<!-- Celular: pantalla "Reproduciendo" -->
+<div id="now" class="md:hidden fixed inset-0 z-40 hidden flex-col px-6 pt-[max(16px,env(safe-area-inset-top))] pb-[max(28px,env(safe-area-inset-bottom))]">
+  <div class="flex items-center justify-between">
+    <button data-act="close-now" class="w-10 h-10 -ml-2 grid place-items-center"><span class="w-8 h-8" data-icon="chevronDown"></span></button>
+    <div class="text-xs font-bold uppercase tracking-widest text-zinc-300">Reproduciendo</div>
+    <div class="w-10"></div>
+  </div>
+  <div class="flex-1 min-h-0 grid place-items-center py-6">
+    <div class="w-full max-w-[min(100%,52vh)] aspect-square rounded-lg overflow-hidden shadow-2xl shadow-black/60 bg-black/30" data-bind="cover"></div>
+  </div>
+  <div class="flex items-center gap-3">
+    <div class="flex-1 min-w-0">
+      <div class="text-2xl font-bold truncate" data-bind="title">Nada sonando</div>
+      <div class="text-zinc-300 truncate" data-bind="artist">Elige una canción</div>
+    </div>
+    <button data-act="like" data-bind="like" class="ctl w-10 h-10 grid place-items-center"><span class="w-7 h-7" data-icon="heart"></span></button>
+  </div>
+  <div class="mt-5">
+    <input type="range" class="rng" min="0" max="1000" value="0" step="1" data-bind="seek" aria-label="Progreso">
+    <div class="flex justify-between text-xs text-zinc-300 tabular-nums mt-1.5">
+      <span data-bind="time">0:00</span><span data-bind="duration">0:00</span>
+    </div>
+  </div>
+  <div class="flex items-center justify-between mt-4">
+    <button data-act="shuffle" data-bind="shuffle" class="ctl w-10 h-10 grid place-items-center"><span class="w-6 h-6" data-icon="shuffle"></span></button>
+    <button data-act="prev" class="ctl !text-white w-12 h-12 grid place-items-center"><span class="w-9 h-9" data-icon="prev"></span></button>
+    <button data-act="toggle" class="w-16 h-16 rounded-full bg-white text-black grid place-items-center active:scale-95 transition"><span class="w-9 h-9" data-bind="play-icon"></span></button>
+    <button data-act="next" class="ctl !text-white w-12 h-12 grid place-items-center"><span class="w-9 h-9" data-icon="next"></span></button>
+    <button data-act="repeat" data-bind="repeat" class="ctl w-10 h-10 grid place-items-center">
+      <span class="w-6 h-6" data-icon="repeat"></span>
+      <span class="badge absolute top-0.5 right-0 w-3.5 h-3.5 rounded-full bg-accent text-black text-[9px] font-black place-items-center">1</span>
+    </button>
+  </div>
+</div>
+
+<!-- Arrastrar y soltar -->
+<div id="drop" class="fixed inset-0 z-50 hidden place-items-center bg-black/80 backdrop-blur-sm pointer-events-none">
+  <div class="border-2 border-dashed border-accent rounded-2xl px-12 py-10 text-center">
+    <div class="w-14 h-14 mx-auto text-accent" data-icon="upload"></div>
+    <div class="text-2xl font-bold mt-3">Suelta tu música aquí</div>
+    <div class="text-zinc-400 mt-1">MP3, M4A, WAV, OGG, FLAC…</div>
+  </div>
+</div>
+
+<input id="file-input" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple hidden>
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-[150px] md:bottom-[100px] z-[60] hidden px-4 py-2.5 rounded-lg bg-white text-black text-sm font-semibold shadow-2xl max-w-[90vw] text-center"></div>
+
+<script>
+/* ---------- Íconos ---------- */
+const ICONS = {
+  logo: '<path d="M7 15v-6M10.5 18V6M14 16V8M17.5 13.5v-3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>',
+  home: '<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>',
+  search: '<path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>',
+  library: '<path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 2.5-2.5c.57 0 1.08.19 1.5.51V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/>',
+  plus: '<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>',
+  upload: '<path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>',
+  link: '<path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>',
+  play: '<path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14z"/>',
+  pause: '<path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z"/>',
+  next: '<path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>',
+  prev: '<path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>',
+  shuffle: '<path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>',
+  repeat: '<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>',
+  volume: '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>',
+  volumeLow: '<path d="M7 9v6h4l5 5V4l-5 5H7zm11.5 3A4.5 4.5 0 0 0 16 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>',
+  mute: '<path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z"/>',
+  heart: '<path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>',
+  heartFill: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>',
+  more: '<path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm12 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',
+  clock: '<path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>',
+  note: '<path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>',
+  edit: '<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>',
+  trash: '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>',
+  chevronDown: '<path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>',
+  queue: '<path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18A3 3 0 0 0 16 14a3 3 0 1 0 3 3V8h3V6h-5z"/>',
+  cloud: '<path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.99 5.99 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>',
+  download: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-12h-2v4H8l4 4 4-4h-3V8z"/>',
+  downloaded: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15-5-5h3V8h4v4h3l-5 5z"/>',
+  folder: '<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>',
+  refresh: '<path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>',
+  chevronRight: '<path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>',
+};
+const icon = (name, cls = 'w-full h-full') => `<svg viewBox="0 0 24 24" fill="currentColor" class="${cls}" aria-hidden="true">${ICONS[name]}</svg>`;
+function paintIcons(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); }); }
+
+/* ---------- Utilidades ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => crypto.randomUUID?.() ?? (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+const fmt = s => { if (!isFinite(s) || s < 0) return '--:--'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const hash = str => { let h = 0; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
+const hueOf = t => hash((t.album || '') + (t.artist || '') + (t.album ? '' : t.title)) % 360;
+const shuffleArr = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg;
+  el.classList.remove('hidden', 'toast-in'); void el.offsetWidth; el.classList.add('toast-in');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hidden'), 2800);
+}
+
+/* ---------- Almacenamiento (IndexedDB) ---------- */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('sonora', 3);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        for (const s of ['tracks', 'playlists', 'offline', 'drivemeta']) if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' });
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  all(store) {
+    if (!this.db) return Promise.resolve([]);
+    return new Promise((res, rej) => { const r = this.db.transaction(store).objectStore(store).getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  },
+  put(store, val) {
+    if (!this.db) return Promise.resolve();
+    return new Promise((res, rej) => { const t = this.db.transaction(store, 'readwrite'); t.objectStore(store).put(val); t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
+  },
+  del(store, id) {
+    if (!this.db) return Promise.resolve();
+    return new Promise((res, rej) => { const t = this.db.transaction(store, 'readwrite'); t.objectStore(store).delete(id); t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+  }
+};
+function saveTrack(t) {
+  if (t.kind === 'gdrive') { drive.saveLocal(t); return Promise.resolve(); } // los archivos de Drive no se tocan
+  if (cloud.active) return cloud.saveTrack(t);
+  const { url, coverUrl, ...rec } = t; return DB.put('tracks', rec);
+}
+function savePl(p) {
+  return (cloud.active ? cloud.savePl(p) : DB.put('playlists', p)).catch(e => { console.warn(e); if (cloud.active) toast('No se pudo guardar el cambio en la nube'); });
+}
+const removeTrackRecord = t => cloud.active ? cloud.deleteTrack(t) : DB.del('tracks', t.id);
+const removePlRecord = id => cloud.active ? cloud.deletePl(id) : DB.del('playlists', id);
+
+/* ---------- Nube (Supabase) ---------- */
+// Proyecto de Supabase. La clave publishable es pública: lo que protege los datos son las reglas RLS.
+const SUPABASE = { url: 'https://xoapaoujsubxpohswkew.supabase.co', anonKey: 'sb_publishable_RbBjmhTOdEEi0f5XDOxlrQ_YnksISBS' };
+const BUCKET = 'music';
+const SIGN_TTL = 60 * 60 * 24 * 7;
+const CLOUD_MAX_BYTES = 50 * 1024 * 1024;
+const AUDIO_TYPES = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', flac: 'audio/flac', webm: 'audio/webm', weba: 'audio/webm' };
+
+const cloud = {
+  client: null, user: null, active: false,
+  config() {
+    const c = ls.get('sonora-cloud', null);
+    if (c?.url && c?.anonKey) return c;
+    return SUPABASE.url && SUPABASE.anonKey ? SUPABASE : null;
+  },
+  init() {
+    const c = this.config();
+    if (!c || !window.supabase) return false;
+    try { this.client = window.supabase.createClient(c.url, c.anonKey); return true; }
+    catch (e) { console.warn(e); this.client = null; return false; }
+  },
+  // Sin internet la sesión no se puede refrescar: se usa el último usuario conocido.
+  async restore() {
+    if (!this.client) return;
+    const known = ls.get('sonora-cloud-user', null);
+    let user = null, failed = false;
+    if (!navigator.onLine && known) failed = true; // no esperar a que falle la renovación de la sesión
+    else try {
+      const { data, error } = await this.client.auth.getSession();
+      if (error) failed = true;
+      user = data?.session?.user || null;
+    } catch { failed = true; }
+    if (!user && known && (failed || !navigator.onLine)) user = known;
+    else if (user) ls.set('sonora-cloud-user', { id: user.id, email: user.email });
+    this.user = user; this.active = !!user; this.offline = false;
+  },
+  async signIn(email, password) {
+    const { data, error } = await this.client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    this.user = data.user; this.active = true; this.offline = false;
+    ls.set('sonora-cloud-user', { id: data.user.id, email: data.user.email });
+  },
+  async signOut() {
+    await this.client?.auth.signOut().catch(() => {});
+    ls.set('sonora-cloud-user', null); ls.set('sonora-cloud-cache', null);
+    this.user = null; this.active = false; this.offline = false;
+  },
+  reset() { ls.set('sonora-cloud', null); this.client = null; this.user = null; this.active = false; this.offline = false; },
+
+  row(t) {
+    return {
+      id: t.id, title: t.title, artist: t.artist || null, album: t.album || null,
+      duration: isFinite(t.duration) ? t.duration : null, liked: !!t.liked,
+      storage_path: t.storagePath || null, cover_path: t.coverPath || null,
+      external_url: t.kind === 'url' ? t.src : null,
+      created_at: new Date(t.addedAt).toISOString(),
+    };
+  },
+  fromRow(r, signed, download) {
+    const t = {
+      id: r.id, kind: r.storage_path ? 'cloud' : 'url',
+      title: r.title, artist: r.artist || 'Artista desconocido', album: r.album || '',
+      duration: r.duration ?? NaN, liked: r.liked, addedAt: Date.parse(r.created_at),
+      storagePath: r.storage_path, coverPath: r.cover_path, src: r.external_url,
+      url: r.storage_path ? signed[r.storage_path] : r.external_url,
+      coverUrl: r.cover_path ? signed[r.cover_path] || null : null,
+      offline: false,
+    };
+    // Si la canción está descargada, suena desde la copia del dispositivo.
+    if (download) {
+      t.offline = true;
+      t.url = URL.createObjectURL(download.blob);
+      if (download.coverBlob) t.coverUrl = URL.createObjectURL(download.coverBlob);
+    }
+    return t;
+  },
+  async sign(paths) {
+    const signed = {};
+    for (let i = 0; i < paths.length; i += 500) {
+      const { data, error } = await this.client.storage.from(BUCKET).createSignedUrls(paths.slice(i, i + 500), SIGN_TTL);
+      if (error) throw error;
+      data.forEach(d => { if (d.signedUrl) signed[d.path] = d.signedUrl; });
+    }
+    return signed;
+  },
+  // Con internet trae la biblioteca y guarda una copia; sin internet usa esa copia
+  // y muestra solo las canciones descargadas.
+  async load() {
+    let rows, signed = {};
+    try {
+      if (!navigator.onLine) throw new Error('Sin conexión'); // evita los reintentos de Supabase
+      const [t, p] = await Promise.all([
+        this.client.from('tracks').select('*').order('created_at'),
+        this.client.from('playlists').select('*').order('created_at'),
+      ]);
+      if (t.error) throw t.error;
+      if (p.error) throw p.error;
+      rows = { tracks: t.data, playlists: p.data };
+      signed = await this.sign(t.data.flatMap(r => [r.storage_path, r.cover_path]).filter(Boolean));
+      ls.set('sonora-cloud-cache', { userId: this.user.id, ...rows });
+      this.offline = false;
+    } catch (e) {
+      const cache = ls.get('sonora-cloud-cache', null);
+      if (!cache || cache.userId !== this.user.id) throw e;
+      rows = cache; this.offline = true;
+    }
+    const downloads = new Map((await DB.all('offline').catch(() => []))
+      .filter(d => d.userId === this.user.id).map(d => [d.id, d]));
+    let tracks = rows.tracks.map(r => this.fromRow(r, signed, downloads.get(r.id)));
+    if (this.offline) tracks = tracks.filter(t => t.offline);
+    return {
+      tracks,
+      playlists: rows.playlists.map(r => ({ id: r.id, name: r.name, trackIds: r.track_ids || [], createdAt: Date.parse(r.created_at) })),
+    };
+  },
+  async addFile(file, meta) {
+    const store = this.client.storage.from(BUCKET);
+    const id = uid();
+    const ext = (file.name?.match(/\.([a-z0-9]+)$/i)?.[1] || 'mp3').toLowerCase();
+    const storagePath = `${this.user.id}/${id}.${ext}`;
+    const up = await store.upload(storagePath, file, { contentType: file.type || AUDIO_TYPES[ext] || 'audio/mpeg' });
+    if (up.error) throw up.error;
+    let coverPath = null;
+    if (meta.coverBlob) {
+      const type = /^image\//.test(meta.coverBlob.type) ? meta.coverBlob.type : 'image/jpeg';
+      const c = await store.upload(`${this.user.id}/${id}-cover`, meta.coverBlob, { contentType: type });
+      if (!c.error) coverPath = `${this.user.id}/${id}-cover`;
+    }
+    const t = {
+      id, kind: 'cloud', title: meta.title, artist: meta.artist, album: meta.album || '',
+      duration: meta.duration, liked: !!meta.liked, addedAt: meta.addedAt, storagePath, coverPath,
+    };
+    const ins = await this.client.from('tracks').insert(this.row(t));
+    if (ins.error) { await store.remove([storagePath, coverPath].filter(Boolean)); throw ins.error; }
+    const signed = await this.sign([storagePath, coverPath].filter(Boolean));
+    t.url = signed[storagePath]; t.coverUrl = coverPath ? signed[coverPath] || null : null;
+    return t;
+  },
+  async saveTrack(t) {
+    const { error } = await this.client.from('tracks').upsert(this.row(t));
+    if (error) throw error;
+  },
+  async deleteTrack(t) {
+    const { error } = await this.client.from('tracks').delete().eq('id', t.id);
+    if (error) throw error;
+    const paths = [t.storagePath, t.coverPath].filter(Boolean);
+    if (paths.length) await this.client.storage.from(BUCKET).remove(paths);
+  },
+  async savePl(p) {
+    const { error } = await this.client.from('playlists').upsert({ id: p.id, name: p.name, track_ids: p.trackIds, created_at: new Date(p.createdAt).toISOString() });
+    if (error) throw error;
+  },
+  async deletePl(id) {
+    const { error } = await this.client.from('playlists').delete().eq('id', id);
+    if (error) throw error;
+  },
+};
+function hydrate(rec) {
+  rec.url = rec.kind === 'file' && rec.blob ? URL.createObjectURL(rec.blob) : rec.src;
+  rec.coverUrl = rec.coverBlob ? URL.createObjectURL(rec.coverBlob) : null;
+  return rec;
+}
+
+/* ---------- Estado ---------- */
+const state = {
+  tracks: new Map(),
+  playlists: [],
+  view: { name: 'home' },
+  search: '',
+  queue: [], origQueue: [], qi: -1, source: null,
+  shuffle: ls.get('sonora-shuffle', false),
+  repeat: ls.get('sonora-repeat', 'off'),
+  uploadTarget: null,
+};
+const audio = new Audio();
+audio.preload = 'metadata';
+audio.volume = ls.get('sonora-volume', 0.8);
+let lastVolume = audio.volume || 0.8;
+let seeking = false;
+let errorStreak = 0;
+
+const current = () => state.tracks.get(state.queue[state.qi]);
+const getPl = id => state.playlists.find(p => p.id === id);
+
+function listTracks(key) {
+  const all = [...state.tracks.values()].sort((a, b) => a.addedAt - b.addedAt);
+  if (key === 'all') return all;
+  if (key === 'liked') return all.filter(t => t.liked);
+  if (key === 'drive') return all.filter(t => t.kind === 'gdrive').sort((a, b) => (a.album || '').localeCompare(b.album || '', 'es') || a.title.localeCompare(b.title, 'es'));
+  if (key === 'recent') return all.slice().reverse().slice(0, 10);
+  if (key === 'search') {
+    const q = state.search.trim().toLowerCase();
+    if (!q) return [];
+    return all.filter(t => [t.title, t.artist, t.album].some(v => (v || '').toLowerCase().includes(q)));
+  }
+  if (key?.startsWith('pl:')) { const p = getPl(key.slice(3)); return p ? p.trackIds.map(id => state.tracks.get(id)).filter(Boolean) : []; }
+  return [];
+}
+function listMeta(key) {
+  if (key === 'liked') return { name: 'Tus me gusta', type: 'Playlist', hue: 250 };
+  if (key === 'all') return { name: 'Toda tu música', type: 'Biblioteca', hue: 145 };
+  if (key === 'drive') return drive.enabled ? { name: 'Google Drive', type: 'Carpeta de Drive', hue: 205, drive: true } : null;
+  const p = getPl(key.slice(3));
+  return p ? { name: p.name, type: 'Playlist', hue: hash(p.id) % 360, pl: p } : null;
+}
+
+/* ---------- Portadas ---------- */
+function coverHTML(t, iconCls = 'w-1/3 h-1/3') {
+  if (t?.coverUrl) return `<img src="${t.coverUrl}" alt="" class="w-full h-full object-cover" draggable="false">`;
+  const h = t ? hueOf(t) : 0;
+  const bg = t ? `linear-gradient(135deg,hsl(${h} 65% 45%),hsl(${(h + 50) % 360} 60% 22%))` : '#282828';
+  return `<div class="w-full h-full grid place-items-center text-white/80" style="background:${bg}">${icon('note', iconCls)}</div>`;
+}
+function listCoverHTML(key) {
+  if (key === 'liked') return `<div class="w-full h-full grid place-items-center text-white" style="background:linear-gradient(135deg,#4f2fd6,#8fb8e8)">${icon('heartFill', 'w-2/5 h-2/5')}</div>`;
+  if (key === 'all') return `<div class="w-full h-full grid place-items-center text-white" style="background:linear-gradient(135deg,#15803d,#0f3d24)">${icon('library', 'w-2/5 h-2/5')}</div>`;
+  if (key === 'drive') return `<div class="w-full h-full grid place-items-center text-white" style="background:linear-gradient(135deg,#1d4ed8,#0e7490 55%,#064e3b)">${icon('cloud', 'w-2/5 h-2/5')}</div>`;
+  const tracks = listTracks(key);
+  const withCover = tracks.filter(t => t.coverUrl).slice(0, 4);
+  if (withCover.length === 4) return `<div class="w-full h-full grid grid-cols-2">${withCover.map(t => `<img src="${t.coverUrl}" class="w-full h-full object-cover" alt="" draggable="false">`).join('')}</div>`;
+  if (withCover.length) return `<img src="${withCover[0].coverUrl}" class="w-full h-full object-cover" alt="" draggable="false">`;
+  const h = hash(key) % 360;
+  return `<div class="w-full h-full grid place-items-center text-white/80" style="background:linear-gradient(135deg,hsl(${h} 60% 42%),hsl(${(h + 60) % 360} 55% 18%))">${icon('note', 'w-2/5 h-2/5')}</div>`;
+}
+
+/* ---------- Vistas ---------- */
+function libraryKeys() { return ['liked', 'all', ...(drive.enabled ? ['drive'] : []), ...state.playlists.map(p => 'pl:' + p.id)]; }
+function countLabel(n) { return n === 1 ? '1 canción' : `${n} canciones`; }
+function totalLabel(tracks) {
+  const s = tracks.reduce((a, t) => a + (isFinite(t.duration) ? t.duration : 0), 0);
+  if (!s) return '';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h} h ${m} min` : `${m} min ${Math.floor(s % 60)} s`;
+}
+
+function playlistCard(key) {
+  const m = listMeta(key); const n = listTracks(key).length;
+  return `
+  <div class="group p-2.5 md:p-3 rounded-md hover:bg-white/10 cursor-pointer transition" data-act="nav" data-view="playlist" data-key="${key}">
+    <div class="relative aspect-square rounded-md overflow-hidden shadow-lg shadow-black/50 mb-3">
+      ${listCoverHTML(key)}
+      <button data-act="play-list" data-list="${key}" data-list-play="${key}" title="Reproducir"
+        class="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-accent text-black grid place-items-center shadow-xl shadow-black/40 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 hover:scale-105 hover:bg-accent-hover transition">
+        <span class="w-6 h-6 list-play-icon">${icon('play')}</span>
+      </button>
+    </div>
+    <div class="font-semibold truncate">${esc(m.name)}</div>
+    <div class="text-sm text-zinc-400 truncate">${m.type} · ${countLabel(n)}</div>
+  </div>`;
+}
+function trackCard(t, key, i) {
+  return `
+  <div class="group p-2.5 md:p-3 rounded-md hover:bg-white/10 cursor-pointer transition" data-act="play-track" data-list="${key}" data-index="${i}" data-row="${t.id}">
+    <div class="relative aspect-square rounded-md overflow-hidden shadow-lg shadow-black/50 mb-3">
+      ${coverHTML(t)}
+      <span class="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-accent text-black grid place-items-center shadow-xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition">${icon('play', 'w-6 h-6')}</span>
+    </div>
+    <div class="font-semibold truncate t-title">${esc(t.title)}</div>
+    <div class="text-sm text-zinc-400 truncate">${esc(t.artist)}</div>
+  </div>`;
+}
+
+function viewHome() {
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? 'Buenos días' : hr < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const keys = libraryKeys();
+  const recent = listTracks('recent');
+  return `
+  <div class="relative">
+    <div class="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-emerald-800/50 to-transparent pointer-events-none"></div>
+    <div class="relative p-4 md:p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h1 class="text-2xl md:text-3xl font-bold">${greet}</h1>
+        <div class="md:hidden flex items-center gap-1">
+          <button data-act="cloud" class="w-10 h-10 grid place-items-center ${cloud.active ? 'text-accent' : 'text-zinc-200'}" title="Nube">${icon('cloud', 'w-6 h-6')}</button>
+          <button data-act="upload" class="w-10 h-10 grid place-items-center text-zinc-200" title="Agregar música">${icon('upload', 'w-6 h-6')}</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 xl:grid-cols-3 gap-2 md:gap-3 mb-8">
+        ${keys.slice(0, 6).map(k => `
+          <div class="group flex items-center gap-3 rounded bg-white/10 hover:bg-white/20 overflow-hidden cursor-pointer transition pr-2" data-act="nav" data-view="playlist" data-key="${k}">
+            <div class="w-12 h-12 md:w-16 md:h-16 shrink-0 shadow-lg">${listCoverHTML(k)}</div>
+            <div class="flex-1 min-w-0 text-sm md:text-base font-bold truncate">${esc(listMeta(k).name)}</div>
+            <button data-act="play-list" data-list="${k}" data-list-play="${k}" class="hidden md:grid w-10 h-10 shrink-0 rounded-full bg-accent text-black place-items-center shadow-lg opacity-0 group-hover:opacity-100 hover:scale-105 transition">
+              <span class="w-5 h-5 list-play-icon">${icon('play')}</span>
+            </button>
+          </div>`).join('')}
+      </div>
+
+      <section class="mb-8">
+        <h2 class="text-xl md:text-2xl font-bold mb-3">Agrega tu música</h2>
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <button data-act="drive" class="text-left flex items-center gap-4 p-4 rounded-lg bg-gradient-to-br from-sky-700/70 to-sky-950/70 hover:from-sky-600/70 transition">
+            <span class="w-12 h-12 shrink-0 rounded-full bg-black/30 grid place-items-center">${icon('cloud', 'w-6 h-6')}</span>
+            <span><span class="block font-bold">${drive.enabled ? 'Tu Google Drive' : 'Desde Google Drive'}</span><span class="block text-sm text-white/70">${drive.enabled ? esc(drive.folder.name) + ' · toca para administrar' : 'Escucha la música de una carpeta de tu Drive'}</span></span>
+          </button>
+          <button data-act="upload" class="text-left flex items-center gap-4 p-4 rounded-lg bg-gradient-to-br from-emerald-700/70 to-emerald-950/70 hover:from-emerald-600/70 transition">
+            <span class="w-12 h-12 shrink-0 rounded-full bg-black/30 grid place-items-center">${icon('upload', 'w-6 h-6')}</span>
+            <span><span class="block font-bold">Archivos de tu dispositivo</span><span class="block text-sm text-white/70">Elige canciones o arrástralas a la ventana</span></span>
+          </button>
+          <button data-act="add-url" class="text-left flex items-center gap-4 p-4 rounded-lg bg-gradient-to-br from-indigo-700/70 to-indigo-950/70 hover:from-indigo-600/70 transition">
+            <span class="w-12 h-12 shrink-0 rounded-full bg-black/30 grid place-items-center">${icon('link', 'w-6 h-6')}</span>
+            <span><span class="block font-bold">Desde un enlace</span><span class="block text-sm text-white/70">Pega la URL directa de un archivo de audio</span></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="mb-8">
+        <div class="flex items-end justify-between mb-2">
+          <h2 class="text-xl md:text-2xl font-bold">Tus playlists</h2>
+          <button data-act="new-playlist" class="text-sm font-bold text-zinc-400 hover:text-white">+ Nueva</button>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1 md:gap-2 -mx-2.5 md:-mx-3">
+          ${keys.map(playlistCard).join('')}
+        </div>
+      </section>
+
+      ${recent.length ? `
+      <section class="mb-4">
+        <h2 class="text-xl md:text-2xl font-bold mb-2">Agregadas recientemente</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1 md:gap-2 -mx-2.5 md:-mx-3">
+          ${recent.map((t, i) => trackCard(t, 'recent', i)).join('')}
+        </div>
+      </section>` : ''}
+    </div>
+  </div>`;
+}
+
+function trackRow(t, key, i, showAlbum = true) {
+  const inPl = key.startsWith('pl:');
+  const added = new Date(t.addedAt).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `
+  <div data-row="${t.id}" data-act="play-track" data-list="${key}" data-index="${i}"
+    class="group grid grid-cols-[1fr_auto] md:grid-cols-[28px_minmax(0,4fr)_minmax(0,3fr)_minmax(0,2fr)_120px] items-center gap-4 px-2 md:px-4 h-14 rounded-md hover:bg-white/10 cursor-pointer">
+    <div class="hidden md:flex justify-end text-zinc-400 tabular-nums t-idx">
+      <span class="t-idx-num group-hover:hidden">${i + 1}</span>
+      <span class="eq items-end gap-[2px] h-3 group-hover:!hidden"><span></span><span></span><span></span></span>
+      <span class="hidden group-hover:inline text-white">${icon('play', 'w-4 h-4')}</span>
+    </div>
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-10 h-10 rounded overflow-hidden shrink-0">${coverHTML(t, 'w-5 h-5')}</div>
+      <div class="min-w-0">
+        <div class="truncate t-title">${esc(t.title)}</div>
+        <div class="truncate text-sm text-zinc-400">${t.offline ? `<span class="inline-block w-3.5 h-3.5 text-accent align-[-2px] mr-1" title="Descargada">${icon('downloaded')}</span>` : ''}${t.kind === 'url' ? '<span class="inline-block align-[1px] text-[9px] font-bold bg-zinc-400 text-black rounded-sm px-1 mr-1">URL</span>' : ''}${t.kind === 'gdrive' && key !== 'drive' ? '<span class="inline-block align-[1px] text-[9px] font-bold bg-sky-400 text-black rounded-sm px-1 mr-1">DRIVE</span>' : ''}${esc(t.artist)}</div>
+      </div>
+    </div>
+    <div class="hidden md:block truncate text-sm text-zinc-400">${showAlbum ? esc(t.album || '—') : ''}</div>
+    <div class="hidden md:block truncate text-sm text-zinc-400">${added}</div>
+    <div class="flex items-center justify-end gap-1 md:gap-3 text-zinc-400">
+      <button data-act="like" data-id="${t.id}" title="${t.liked ? 'Quitar de Me gusta' : 'Me gusta'}" class="w-8 h-8 grid place-items-center ${t.liked ? 'text-accent' : 'md:opacity-0 group-hover:opacity-100 hover:text-white'} transition">${icon(t.liked ? 'heartFill' : 'heart', 'w-[18px] h-[18px]')}</button>
+      <span class="hidden md:inline w-10 text-right text-sm tabular-nums" data-dur="${t.id}">${fmt(t.duration)}</span>
+      <button data-act="more" data-id="${t.id}" data-list="${key}" title="Más opciones" class="w-8 h-8 grid place-items-center md:opacity-0 group-hover:opacity-100 hover:text-white transition">${icon('more', 'w-5 h-5')}</button>
+    </div>
+  </div>`;
+}
+function trackTable(tracks, key) {
+  return `
+  <div class="hidden md:grid grid-cols-[28px_minmax(0,4fr)_minmax(0,3fr)_minmax(0,2fr)_120px] gap-4 px-4 h-9 items-center text-sm text-zinc-400 border-b border-white/10 mb-2">
+    <span class="text-right">#</span><span>Título</span><span>Álbum</span><span>Agregada</span>
+    <span class="flex justify-end pr-11">${icon('clock', 'w-4 h-4')}</span>
+  </div>
+  <div>${tracks.map((t, i) => trackRow(t, key, i)).join('')}</div>`;
+}
+
+function viewPlaylist(key) {
+  const m = listMeta(key);
+  if (!m) return viewHome();
+  const tracks = listTracks(key);
+  const target = key.startsWith('pl:') ? key : '';
+  const total = totalLabel(tracks);
+  return `
+  <div style="background:linear-gradient(to bottom,hsl(${m.hue} 45% 30%) 0,hsl(${m.hue} 40% 14%) 340px,#121212 520px)">
+    <header class="flex flex-col md:flex-row items-center md:items-end gap-4 md:gap-6 px-4 md:px-6 pt-6 md:pt-14 pb-6">
+      <div class="w-48 h-48 md:w-56 md:h-56 shrink-0 rounded-md overflow-hidden shadow-2xl shadow-black/60">${listCoverHTML(key)}</div>
+      <div class="min-w-0 w-full">
+        <div class="hidden md:block text-sm font-semibold">${m.type}</div>
+        <h1 class="text-3xl md:text-4xl lg:text-5xl xl:text-7xl font-black tracking-tight my-2 md:my-3 line-clamp-2">${esc(m.name)}</h1>
+        <div class="text-sm text-zinc-300"><span class="font-semibold text-white">Tú</span> · ${countLabel(tracks.length)}${total ? `<span class="text-zinc-400">, ${total}</span>` : ''}</div>
+      </div>
+    </header>
+    <div class="bg-gradient-to-b from-black/25 to-transparent px-2 md:px-6 pb-8">
+      <div class="flex items-center gap-3 md:gap-5 px-2 py-5">
+        <button data-act="play-list" data-list="${key}" data-list-play="${key}" title="Reproducir"
+          class="w-14 h-14 rounded-full bg-accent text-black grid place-items-center shadow-lg hover:scale-105 hover:bg-accent-hover active:scale-95 transition">
+          <span class="w-7 h-7 list-play-icon">${icon('play')}</span>
+        </button>
+        <button data-act="shuffle" data-bind="shuffle" title="Aleatorio" class="ctl ${state.shuffle ? 'on' : ''} w-10 h-10 grid place-items-center">${icon('shuffle', 'w-7 h-7')}</button>
+        ${downloadButton(key, tracks)}
+        ${m.drive ? `
+        <button data-act="drive-refresh" title="Buscar canciones nuevas en Drive" class="ctl w-10 h-10 grid place-items-center">${icon('refresh', 'w-7 h-7')}</button>
+        <button data-act="drive" title="Ajustes de Google Drive" class="ctl w-10 h-10 grid place-items-center">${icon('folder', 'w-7 h-7')}</button>` : `
+        <button data-act="upload" data-target="${target}" title="Agregar archivos" class="ctl w-10 h-10 grid place-items-center">${icon('upload', 'w-7 h-7')}</button>
+        <button data-act="add-url" data-target="${target}" title="Agregar desde enlace" class="ctl w-10 h-10 grid place-items-center">${icon('link', 'w-7 h-7')}</button>`}
+        ${m.pl ? `
+          <button data-act="rename-pl" data-pl="${m.pl.id}" title="Renombrar" class="ctl w-10 h-10 grid place-items-center">${icon('edit', 'w-6 h-6')}</button>
+          <button data-act="delete-pl" data-pl="${m.pl.id}" title="Eliminar playlist" class="ctl w-10 h-10 grid place-items-center">${icon('trash', 'w-6 h-6')}</button>` : ''}
+      </div>
+      ${tracks.length ? trackTable(tracks, key) : m.drive ? `
+        <div class="text-center py-14 px-4">
+          <div class="w-14 h-14 mx-auto text-zinc-500">${icon('folder')}</div>
+          <h3 class="text-xl font-bold mt-4">${navigator.onLine ? 'Todavía no hay canciones de Drive' : 'Sin conexión y sin canciones de Drive descargadas'}</h3>
+          <p class="text-zinc-400 mt-1">Carpeta: ${esc(drive.folder.path || drive.folder.name)}. Sube archivos de audio ahí y toca actualizar.</p>
+          <button data-act="drive-refresh" class="mt-5 px-6 py-3 rounded-full bg-white text-black font-bold hover:scale-105 transition">Actualizar</button>
+        </div>` : `
+        <div class="text-center py-14 px-4">
+          <div class="w-14 h-14 mx-auto text-zinc-500">${icon(key === 'liked' ? 'heart' : 'note')}</div>
+          <h3 class="text-xl font-bold mt-4">${key === 'liked' ? 'Las canciones que te gusten aparecerán aquí' : 'Esta lista está vacía'}</h3>
+          <p class="text-zinc-400 mt-1">${key === 'liked' ? 'Toca el corazón en cualquier canción para guardarla.' : 'Agrega archivos de tu dispositivo o un enlace, o usa el menú ··· de cualquier canción.'}</p>
+          ${key !== 'liked' ? `<button data-act="upload" data-target="${target}" class="mt-5 px-6 py-3 rounded-full bg-white text-black font-bold hover:scale-105 transition">Agregar música</button>` : ''}
+        </div>`}
+    </div>
+  </div>`;
+}
+
+function viewSearch() {
+  return `
+  <div class="p-4 md:p-6">
+    <h1 class="md:hidden text-2xl font-bold mb-4">Buscar</h1>
+    <div class="relative max-w-md mb-6">
+      <span class="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 text-zinc-500 pointer-events-none">${icon('search')}</span>
+      <input id="search-input" type="search" autocomplete="off" placeholder="¿Qué quieres escuchar?" value="${esc(state.search)}"
+        class="w-full h-12 rounded-full bg-elev hover:bg-[#2a2a2a] focus:bg-[#2a2a2a] border-2 border-transparent focus:border-white outline-none pl-12 pr-4 text-white placeholder-zinc-400 select-text">
+    </div>
+    <div id="search-results"></div>
+  </div>`;
+}
+function renderSearchResults() {
+  const box = $('#search-results'); if (!box) return;
+  const q = state.search.trim().toLowerCase();
+  if (!q) {
+    box.innerHTML = `
+      <h2 class="text-xl font-bold mb-3">Explorar tu biblioteca</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1 md:gap-2 -mx-2.5 md:-mx-3">${libraryKeys().map(playlistCard).join('')}</div>`;
+  } else {
+    const tracks = listTracks('search');
+    const pls = libraryKeys().filter(k => listMeta(k).name.toLowerCase().includes(q));
+    box.innerHTML = `
+      ${pls.length ? `<h2 class="text-xl font-bold mb-2">Playlists</h2><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-1 md:gap-2 -mx-2.5 md:-mx-3 mb-6">${pls.map(playlistCard).join('')}</div>` : ''}
+      <h2 class="text-xl font-bold mb-2">Canciones</h2>
+      ${tracks.length ? trackTable(tracks, 'search') : `<p class="text-zinc-400 py-6">No encontramos resultados para “${esc(state.search)}”.</p>`}`;
+  }
+  refreshMarks();
+}
+
+function libraryItem(key, compact) {
+  const m = listMeta(key);
+  const active = state.view.name === 'playlist' && state.view.key === key;
+  const n = listTracks(key).length;
+  const playing = state.source === key && !audio.paused;
+  return `
+  <div data-act="nav" data-view="playlist" data-key="${key}" class="group flex items-center gap-3 p-2 rounded-md cursor-pointer transition ${active ? 'bg-white/10' : 'hover:bg-white/5'}">
+    <div class="${compact ? 'w-12 h-12' : 'w-16 h-16'} shrink-0 rounded overflow-hidden">${listCoverHTML(key)}</div>
+    <div class="flex-1 min-w-0">
+      <div class="truncate font-medium ${state.source === key ? 'text-accent' : ''}">${esc(m.name)}</div>
+      <div class="truncate text-sm text-zinc-400">${m.type} · ${countLabel(n)}</div>
+    </div>
+    ${playing ? `<span class="w-4 h-4 text-accent shrink-0">${icon('volume')}</span>` : ''}
+  </div>`;
+}
+function viewLibrary() {
+  return `
+  <div class="p-4 md:p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl md:text-3xl font-bold">Tu biblioteca</h1>
+      <button data-act="new-playlist" title="Crear playlist" class="w-10 h-10 rounded-full grid place-items-center hover:bg-white/10">${icon('plus', 'w-7 h-7')}</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button data-act="upload" class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold">${icon('upload', 'w-4 h-4')}Agregar música</button>
+      <button data-act="add-url" class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold">${icon('link', 'w-4 h-4')}Desde enlace</button>
+      <button data-act="new-playlist" class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold">${icon('plus', 'w-4 h-4')}Nueva playlist</button>
+      <button data-act="cloud" class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold ${cloud.active ? 'text-accent' : ''}">${icon('cloud', 'w-4 h-4')}${cloud.active ? 'En la nube' : 'Nube'}</button>
+      <button data-act="drive" class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm font-semibold ${drive.enabled ? 'text-sky-400' : ''}">${icon('folder', 'w-4 h-4')}Google Drive</button>
+    </div>
+    <div class="-mx-2">${libraryKeys().map(k => libraryItem(k, false)).join('')}</div>
+  </div>`;
+}
+
+/* ---------- Render ---------- */
+function renderSidebar() { $('#sidebar-list').innerHTML = libraryKeys().map(k => libraryItem(k, true)).join(''); }
+function renderNav() {
+  $$('.nav-link').forEach(el => {
+    const on = el.dataset.nav === state.view.name;
+    el.classList.toggle('text-white', on); el.classList.toggle('text-zinc-400', !on);
+  });
+}
+function renderMain() {
+  const v = state.view;
+  if (v.name === 'search' && $('#search-input')) { renderSearchResults(); return; }
+  const main = $('#main');
+  main.innerHTML = v.name === 'search' ? viewSearch() : v.name === 'library' ? viewLibrary() : v.name === 'playlist' ? viewPlaylist(v.key) : viewHome();
+  if (v.name === 'search') {
+    const inp = $('#search-input');
+    inp.addEventListener('input', () => { state.search = inp.value; renderSearchResults(); });
+    renderSearchResults();
+  }
+  refreshMarks();
+}
+function renderAll() { renderSidebar(); renderNav(); renderMain(); }
+function navigate(view, key, push = true) {
+  if (view === 'playlist' && !listMeta(key)) view = 'home';
+  const same = state.view.name === view && state.view.key === key;
+  if (push && !same) history.pushState({ app: 'sonora', view, key }, '');
+  state.view = { name: view, key };
+  $('#main').innerHTML = '';
+  renderAll();
+  $('#main').scrollTop = 0;
+  if (view === 'search') $('#search-input')?.focus({ preventScroll: true });
+}
+
+function refreshMarks() {
+  const t = current(); const playing = !audio.paused;
+  $$('[data-row]').forEach(el => {
+    const on = !!t && el.dataset.row === t.id;
+    el.classList.toggle('is-playing', on);
+    el.classList.toggle('playing-now', on && playing);
+  });
+  $$('[data-list-play]').forEach(el => {
+    const ic = el.querySelector('.list-play-icon');
+    if (ic) ic.innerHTML = icon(state.source === el.dataset.listPlay && playing ? 'pause' : 'play');
+  });
+}
+
+/* ---------- Reproductor ---------- */
+function updateNowPlaying() {
+  const t = current();
+  $$('[data-bind=title]').forEach(el => el.textContent = t ? t.title : 'Nada sonando');
+  $$('[data-bind=artist]').forEach(el => el.textContent = t ? t.artist : 'Elige una canción');
+  $$('[data-bind=cover]').forEach(el => el.innerHTML = coverHTML(t, 'w-1/2 h-1/2'));
+  updateLikeButtons();
+  const h = t ? hueOf(t) : 0;
+  $('#mini').style.background = t ? `hsl(${h} 35% 22%)` : '';
+  $('#now').style.background = t ? `linear-gradient(to bottom,hsl(${h} 45% 30%),#121212 85%)` : '#121212';
+  document.title = t ? `${t.title} · ${t.artist}` : 'Sonora';
+  updateTime();
+  if ('mediaSession' in navigator && t) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: t.title, artist: t.artist, album: t.album || '',
+        artwork: t.coverUrl ? [{ src: t.coverUrl, sizes: '512x512' }] : []
+      });
+    } catch {}
+  }
+}
+function updateLikeButtons() {
+  const t = current();
+  $$('[data-bind=like]').forEach(el => {
+    el.dataset.id = t ? t.id : '';
+    el.classList.toggle('!text-accent', !!t?.liked);
+    el.firstElementChild.innerHTML = icon(t?.liked ? 'heartFill' : 'heart');
+    el.style.visibility = t ? 'visible' : 'hidden';
+  });
+}
+function updatePlayIcons() {
+  $$('[data-bind=play-icon]').forEach(el => el.innerHTML = icon(audio.paused ? 'play' : 'pause'));
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+}
+function updateModes() {
+  $$('[data-bind=shuffle]').forEach(el => el.classList.toggle('on', state.shuffle));
+  $$('[data-bind=repeat]').forEach(el => { el.classList.toggle('on', state.repeat !== 'off'); el.classList.toggle('one', state.repeat === 'one'); });
+}
+function updateVolumeUI() {
+  const v = audio.muted ? 0 : audio.volume;
+  $$('[data-bind=volume]').forEach(el => { el.value = Math.round(v * 100); el.style.setProperty('--p', v * 100 + '%'); });
+  $$('[data-bind=mute]').forEach(el => el.firstElementChild.innerHTML = icon(v === 0 ? 'mute' : v < 0.5 ? 'volumeLow' : 'volume'));
+}
+function updateTime() {
+  const d = audio.duration, c = audio.currentTime;
+  const t = current();
+  const dur = isFinite(d) ? d : (t?.duration ?? NaN);
+  const pct = isFinite(dur) && dur > 0 ? Math.min(100, (c / dur) * 100) : 0;
+  if (!seeking) {
+    $$('[data-bind=seek]').forEach(el => { el.value = pct * 10; el.style.setProperty('--p', pct + '%'); });
+    $$('[data-bind=time]').forEach(el => el.textContent = fmt(t ? c : 0));
+  }
+  $$('[data-bind=duration]').forEach(el => el.textContent = t ? fmt(dur) : '0:00');
+  $$('[data-bind=progress-bar]').forEach(el => el.style.width = pct + '%');
+}
+
+function loadIndex(i, autoplay = true) {
+  const t = state.tracks.get(state.queue[i]);
+  if (!t) return;
+  state.qi = i;
+  // Canción de Drive aún no bajada: se baja primero y luego suena.
+  if (t.kind === 'gdrive' && !t.url) {
+    audio.pause(); audio.removeAttribute('src'); audio.load();
+    updateNowPlaying(); updatePlayIcons(); refreshMarks(); renderSidebar();
+    const slow = setTimeout(() => current()?.id === t.id && toast(`Cargando “${t.title}” desde Drive…`), 700);
+    drive.resolve(t).then(url => {
+      if (current()?.id !== t.id) return;
+      audio.src = url;
+      if (autoplay) audio.play().catch(e => { if (e.name !== 'AbortError') console.warn(e); });
+    }).catch(e => {
+      if (current()?.id === t.id) toast(e.message || 'No se pudo cargar la canción de Drive');
+    }).finally(() => clearTimeout(slow));
+    return;
+  }
+  audio.src = t.url;
+  if (autoplay) audio.play().catch(e => { if (e.name !== 'AbortError') console.warn(e); });
+  updateNowPlaying(); refreshMarks(); renderSidebar();
+}
+function playQueue(ids, start, key) {
+  if (!ids.length) return toast('Esta lista está vacía');
+  state.source = key; state.origQueue = ids.slice(); errorStreak = 0;
+  if (state.shuffle) {
+    const first = ids[start];
+    state.queue = [first, ...shuffleArr(ids.filter((_, i) => i !== start))];
+    loadIndex(0);
+  } else {
+    state.queue = ids.slice();
+    loadIndex(start);
+  }
+}
+function playKey(key) {
+  if (state.source === key && current()) return togglePlay();
+  const ids = listTracks(key).map(t => t.id);
+  if (!ids.length) return toast('Esta lista está vacía');
+  playQueue(ids, state.shuffle ? Math.floor(Math.random() * ids.length) : 0, key);
+}
+function togglePlay() {
+  if (!current()) return playKey(listTracks('all').length ? 'all' : 'liked');
+  if (!audio.src) return loadIndex(state.qi); // p. ej. una canción de Drive que no se pudo bajar
+  if (audio.paused) audio.play().catch(() => toast('No se pudo reproducir esta canción')); else audio.pause();
+}
+function next(auto = false) {
+  if (!state.queue.length) return;
+  let i = state.qi + 1;
+  if (i >= state.queue.length) {
+    if (state.repeat === 'all' || !auto) i = 0;
+    else { audio.pause(); audio.currentTime = 0; return; }
+  }
+  loadIndex(i);
+}
+function prev() {
+  if (!state.queue.length) return;
+  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  let i = state.qi - 1;
+  if (i < 0) i = state.repeat === 'all' ? state.queue.length - 1 : 0;
+  loadIndex(i);
+}
+function toggleShuffle() {
+  state.shuffle = !state.shuffle; ls.set('sonora-shuffle', state.shuffle);
+  const cur = state.queue[state.qi];
+  if (cur) {
+    if (state.shuffle) {
+      state.origQueue = state.queue.slice();
+      state.queue = [cur, ...shuffleArr(state.queue.filter(id => id !== cur))];
+      state.qi = 0;
+    } else {
+      state.queue = state.origQueue.filter(id => state.tracks.has(id));
+      state.qi = Math.max(0, state.queue.indexOf(cur));
+    }
+  }
+  updateModes();
+  toast(state.shuffle ? 'Aleatorio activado' : 'Aleatorio desactivado');
+}
+function cycleRepeat() {
+  state.repeat = state.repeat === 'off' ? 'all' : state.repeat === 'all' ? 'one' : 'off';
+  ls.set('sonora-repeat', state.repeat); updateModes();
+  toast({ off: 'Repetir desactivado', all: 'Repetir lista', one: 'Repetir canción' }[state.repeat]);
+}
+function toggleMute() {
+  if (audio.muted || audio.volume === 0) { audio.muted = false; audio.volume = lastVolume || 0.8; }
+  else { audio.muted = true; }
+  updateVolumeUI();
+}
+function playNext(id) {
+  if (!current()) { state.source = null; state.queue = [id]; state.origQueue = [id]; loadIndex(0); return; }
+  state.queue.splice(state.qi + 1, 0, id);
+  state.origQueue.push(id);
+  toast('Se reproducirá a continuación');
+}
+
+audio.addEventListener('play', () => { updatePlayIcons(); refreshMarks(); renderSidebar(); });
+audio.addEventListener('pause', () => { updatePlayIcons(); refreshMarks(); renderSidebar(); });
+audio.addEventListener('timeupdate', updateTime);
+audio.addEventListener('playing', () => { errorStreak = 0; drive.prefetchNext(); });
+audio.addEventListener('loadedmetadata', () => {
+  const t = current();
+  if (t && isFinite(audio.duration) && !isFinite(t.duration)) {
+    t.duration = audio.duration; saveTrack(t).catch(() => {});
+    $$(`[data-dur="${t.id}"]`).forEach(el => el.textContent = fmt(t.duration));
+  }
+  updateTime();
+});
+audio.addEventListener('ended', () => {
+  if (state.repeat === 'one') { audio.currentTime = 0; audio.play(); }
+  else next(true);
+});
+audio.addEventListener('error', () => {
+  const t = current(); if (!t || !audio.src) return;
+  toast(`No se pudo cargar “${t.title}”`);
+  errorStreak++;
+  if (state.queue.length > 1 && errorStreak < state.queue.length) setTimeout(() => next(true), 900);
+});
+
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession;
+  const set = (a, fn) => { try { ms.setActionHandler(a, fn); } catch {} };
+  set('play', () => audio.play()); set('pause', () => audio.pause());
+  set('previoustrack', prev); set('nexttrack', () => next());
+  set('seekto', d => { audio.currentTime = d.seekTime; });
+  set('seekbackward', d => { audio.currentTime = Math.max(0, audio.currentTime - (d.seekOffset || 10)); });
+  set('seekforward', d => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (d.seekOffset || 10)); });
+}
+
+/* ---------- Biblioteca: agregar / editar ---------- */
+const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm|weba)$/i;
+const isAudio = f => (f.type && f.type.startsWith('audio/')) || AUDIO_EXT.test(f.name);
+function parseName(name) {
+  const base = name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim();
+  const m = base.match(/^(.+?)\s+[-–]\s+(.+)$/);
+  return m ? { artist: m[1].replace(/^\d+[\s.-]+/, ''), title: m[2] } : { artist: '', title: base.replace(/^\d+[\s.-]+/, '') || base };
+}
+function readTags(file) {
+  return new Promise(res => {
+    if (!window.jsmediatags) return res({});
+    const timer = setTimeout(() => res({}), 6000);
+    try {
+      window.jsmediatags.read(file, {
+        onSuccess: ({ tags }) => {
+          clearTimeout(timer);
+          let coverBlob = null;
+          if (tags.picture?.data?.length) coverBlob = new Blob([new Uint8Array(tags.picture.data)], { type: tags.picture.format || 'image/jpeg' });
+          res({ title: tags.title, artist: tags.artist, album: tags.album, coverBlob });
+        },
+        onError: () => { clearTimeout(timer); res({}); }
+      });
+    } catch { clearTimeout(timer); res({}); }
+  });
+}
+function probeDuration(url) {
+  return new Promise(res => {
+    const a = new Audio(); let done = false;
+    const finish = d => { if (done) return; done = true; res(d); a.removeAttribute('src'); a.load(); };
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => finish(a.duration);
+    a.onerror = () => finish(NaN);
+    setTimeout(() => finish(NaN), 10000);
+    a.src = url;
+  });
+}
+async function handleFiles(fileList, target) {
+  const files = [...fileList].filter(isAudio);
+  if (!files.length) return toast('No encontré archivos de audio');
+  toast(`Agregando ${countLabel(files.length)}…`);
+  const base = Date.now(); const ids = []; let saveFailed = false, failed = 0;
+  for (const [i, f] of files.entries()) {
+    const tags = await readTags(f);
+    const p = parseName(f.name);
+    const tmp = URL.createObjectURL(f);
+    const meta = {
+      title: (tags.title || p.title || 'Sin título').trim(),
+      artist: (tags.artist || p.artist || 'Artista desconocido').trim(),
+      album: (tags.album || '').trim(),
+      coverBlob: tags.coverBlob || null, liked: false, addedAt: base + i,
+      duration: await probeDuration(tmp),
+    };
+    URL.revokeObjectURL(tmp);
+    let rec;
+    if (cloud.active) {
+      if (f.size > CLOUD_MAX_BYTES) { failed++; toast(`“${meta.title}” pesa más de 50 MB y no se puede subir`); continue; }
+      toast(`Subiendo a la nube ${i + 1} de ${files.length}…`);
+      try { rec = await cloud.addFile(f, meta); } catch (e) { console.warn(e); failed++; continue; }
+    } else {
+      rec = hydrate({ id: uid(), kind: 'file', blob: f, ...meta });
+      await saveTrack(rec).catch(() => { saveFailed = true; });
+    }
+    state.tracks.set(rec.id, rec); ids.push(rec.id);
+  }
+  if (target?.startsWith('pl:') && ids.length) { const p = getPl(target.slice(3)); if (p) { p.trackIds.push(...ids); savePl(p); } }
+  renderAll();
+  if (failed) toast(`Listo: ${ids.length} de ${files.length} agregadas (${failed} no se pudieron subir)`);
+  else toast(saveFailed ? 'Agregadas, pero no hay espacio para guardarlas al cerrar' : `${countLabel(ids.length)} ${ids.length === 1 ? 'agregada' : 'agregadas'}`);
+}
+async function addUrl(target) {
+  const v = await modal({
+    title: 'Agregar desde enlace', submit: 'Agregar',
+    fields: [
+      { name: 'url', label: 'URL del archivo de audio', placeholder: 'https://…/cancion.mp3', type: 'url', required: true },
+      { name: 'title', label: 'Título', placeholder: 'Opcional' },
+      { name: 'artist', label: 'Artista', placeholder: 'Opcional' },
+    ]
+  });
+  if (!v) return;
+  const url = v.url.trim();
+  if (!/^https?:\/\//i.test(url)) return toast('El enlace debe empezar con http:// o https://');
+  const p = parseName(decodeURIComponent(url.split(/[?#]/)[0].split('/').pop() || 'Canción'));
+  const rec = hydrate({ id: uid(), kind: 'url', src: url, title: v.title.trim() || p.title, artist: v.artist.trim() || p.artist || 'Desde enlace', album: '', coverBlob: null, liked: false, addedAt: Date.now(), duration: NaN });
+  state.tracks.set(rec.id, rec);
+  await saveTrack(rec).catch(() => {});
+  if (target?.startsWith('pl:')) { const pl = getPl(target.slice(3)); if (pl) { pl.trackIds.push(rec.id); savePl(pl); } }
+  renderAll();
+  toast('Canción agregada');
+  probeDuration(url).then(d => {
+    if (!isFinite(d)) return toast('Ojo: ese enlace no parece un archivo de audio reproducible');
+    rec.duration = d; saveTrack(rec).catch(() => {});
+    $$(`[data-dur="${rec.id}"]`).forEach(el => el.textContent = fmt(d));
+  });
+}
+function toggleLike(id) {
+  const t = state.tracks.get(id); if (!t) return;
+  t.liked = !t.liked; saveTrack(t).catch(() => {});
+  toast(t.liked ? 'Agregada a Tus me gusta' : 'Quitada de Tus me gusta');
+  updateLikeButtons(); renderSidebar(); renderMain();
+}
+async function createPlaylist(withIds = []) {
+  const v = await modal({ title: 'Nueva playlist', submit: 'Crear', fields: [{ name: 'name', label: 'Nombre', value: `Mi playlist n.º ${state.playlists.length + 1}`, required: true }] });
+  if (!v || !v.name.trim()) return;
+  const p = { id: uid(), name: v.name.trim(), trackIds: withIds.filter(Boolean), createdAt: Date.now() };
+  state.playlists.push(p); await savePl(p);
+  navigate('playlist', 'pl:' + p.id);
+  toast(withIds.length ? `Agregada a ${p.name}` : 'Playlist creada');
+}
+async function renamePlaylist(id) {
+  const p = getPl(id); if (!p) return;
+  const v = await modal({ title: 'Renombrar playlist', fields: [{ name: 'name', label: 'Nombre', value: p.name, required: true }] });
+  if (!v || !v.name.trim()) return;
+  p.name = v.name.trim(); await savePl(p); renderAll();
+}
+async function deletePlaylist(id) {
+  const p = getPl(id); if (!p) return;
+  if (!confirm(`¿Eliminar la playlist “${p.name}”? Las canciones seguirán en tu biblioteca.`)) return;
+  state.playlists = state.playlists.filter(x => x.id !== id);
+  await removePlRecord(id).catch(e => { console.warn(e); toast('No se pudo eliminar en la nube'); });
+  if (state.source === 'pl:' + id) state.source = null;
+  navigate('home'); toast('Playlist eliminada');
+}
+function addToPlaylist(plId, ids) {
+  const p = getPl(plId); if (!p) return;
+  const fresh = ids.filter(id => !p.trackIds.includes(id));
+  if (!fresh.length) return toast(`Ya está en ${p.name}`);
+  p.trackIds.push(...fresh); savePl(p);
+  toast(`Agregada a ${p.name}`); renderSidebar(); renderMain();
+}
+function removeFromPlaylist(plId, id) {
+  const p = getPl(plId); if (!p) return;
+  p.trackIds = p.trackIds.filter(x => x !== id); savePl(p);
+  toast(`Quitada de ${p.name}`); renderSidebar(); renderMain();
+}
+async function deleteTrack(id) {
+  const t = state.tracks.get(id); if (!t) return;
+  if (!confirm(`¿Eliminar “${t.title}” de tu biblioteca?`)) return;
+  const curId = current()?.id;
+  if (curId === id) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
+  state.tracks.delete(id);
+  if (t.kind === 'file') URL.revokeObjectURL(t.url);
+  if (t.coverUrl) URL.revokeObjectURL(t.coverUrl);
+  for (const p of state.playlists) if (p.trackIds.includes(id)) { p.trackIds = p.trackIds.filter(x => x !== id); savePl(p); }
+  state.queue = state.queue.filter(x => x !== id);
+  state.origQueue = state.origQueue.filter(x => x !== id);
+  state.qi = curId === id ? -1 : state.queue.indexOf(curId);
+  await removeTrackRecord(t).catch(e => { console.warn(e); toast('No se pudo eliminar en la nube'); });
+  DB.del('offline', id).catch(() => {});
+  updateNowPlaying(); updatePlayIcons(); renderAll();
+  toast('Canción eliminada');
+}
+
+/* ---------- Menú contextual y diálogos ---------- */
+const removeMenu = () => $('#menu')?.remove();
+function closeMenu() {
+  if (!$('#menu')) return;
+  removeMenu(); hist.closeOverlay(removeMenu);
+}
+function openMenu(x, y, html) {
+  closeMenu();
+  const m = document.createElement('div');
+  m.id = 'menu';
+  m.className = 'fixed z-50 w-[250px] max-h-[70vh] overflow-y-auto bg-[#282828] rounded-md shadow-2xl shadow-black/70 p-1 text-sm';
+  m.innerHTML = html;
+  document.body.appendChild(m);
+  hist.openOverlay(removeMenu);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+}
+function menuItem(act, label, attrs = '', ic = '', extra = '') {
+  return `<button data-act="${act}" ${attrs} class="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-left hover:bg-white/10 ${extra}">${ic ? `<span class="w-4 h-4 shrink-0 text-zinc-400">${icon(ic)}</span>` : '<span class="w-4 shrink-0"></span>'}<span class="truncate">${label}</span></button>`;
+}
+function trackMenu(id, key) {
+  const t = state.tracks.get(id); if (!t) return '';
+  const inPl = key?.startsWith('pl:') ? key.slice(3) : null;
+  return `
+    <div class="px-3 pt-2 pb-1 text-xs text-zinc-400 truncate">${esc(t.title)}</div>
+    ${menuItem('q-next', 'Reproducir a continuación', `data-id="${id}"`, 'queue')}
+    ${menuItem('like', t.liked ? 'Quitar de Tus me gusta' : 'Guardar en Tus me gusta', `data-id="${id}"`, t.liked ? 'heartFill' : 'heart')}
+    ${downloadable(t) ? (t.offline
+      ? menuItem('undownload-track', 'Quitar descarga', `data-id="${id}"`, 'downloaded')
+      : menuItem('download-track', 'Descargar para escuchar sin conexión', `data-id="${id}"`, 'download')) : ''}
+    <div class="h-px bg-white/10 my-1"></div>
+    <div class="px-3 py-1.5 text-xs font-bold text-zinc-400 uppercase tracking-wider">Agregar a playlist</div>
+    ${menuItem('new-pl-with', 'Nueva playlist', `data-id="${id}"`, 'plus')}
+    ${state.playlists.map(p => menuItem('add-to', esc(p.name) + (p.trackIds.includes(id) ? ' <span class="text-accent">✓</span>' : ''), `data-id="${id}" data-pl="${p.id}"`, 'note')).join('')}
+    <div class="h-px bg-white/10 my-1"></div>
+    ${inPl ? menuItem('remove-from', 'Quitar de esta playlist', `data-id="${id}" data-pl="${inPl}"`, 'trash') : ''}
+    ${t.kind === 'gdrive'
+      ? '<div class="px-3 py-2 text-xs text-zinc-500">Está en tu Google Drive: para quitarla, bórrala de la carpeta y actualiza.</div>'
+      : menuItem('delete-track', 'Eliminar de la biblioteca', `data-id="${id}"`, 'trash', 'text-red-400')}`;
+}
+function modal({ title, fields, submit = 'Guardar' }) {
+  return new Promise(res => {
+    const wrap = document.createElement('div');
+    wrap.className = 'fixed inset-0 z-[55] bg-black/70 grid place-items-center p-4';
+    wrap.innerHTML = `
+      <form class="w-full max-w-sm bg-[#282828] rounded-xl p-6 shadow-2xl space-y-4">
+        <h2 class="text-xl font-bold">${esc(title)}</h2>
+        ${fields.map(f => `
+          <label class="block">
+            <span class="text-sm text-zinc-300">${esc(f.label)}</span>
+            <input name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value || '')}" placeholder="${esc(f.placeholder || '')}" ${f.required ? 'required' : ''}
+              class="mt-1 w-full rounded-md bg-white/10 border border-transparent focus:border-zinc-300 outline-none px-3 py-2 select-text">
+          </label>`).join('')}
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" data-cancel class="px-4 py-2 rounded-full font-bold text-zinc-300 hover:text-white hover:scale-105 transition">Cancelar</button>
+          <button class="px-6 py-2 rounded-full bg-white text-black font-bold hover:scale-105 transition">${esc(submit)}</button>
+        </div>
+      </form>`;
+    document.body.appendChild(wrap);
+    const form = wrap.querySelector('form');
+    const dismiss = () => { wrap.remove(); res(null); };
+    const close = v => { wrap.remove(); res(v); hist.closeOverlay(dismiss); };
+    hist.openOverlay(dismiss);
+    wrap.addEventListener('mousedown', e => { if (e.target === wrap) close(null); });
+    wrap.querySelector('[data-cancel]').addEventListener('click', () => close(null));
+    wrap.addEventListener('keydown', e => { if (e.key === 'Escape') close(null); });
+    form.addEventListener('submit', e => { e.preventDefault(); close(Object.fromEntries(new FormData(form))); });
+    const first = form.querySelector('input'); first.focus(); first.select();
+  });
+}
+function hideNow() { const el = $('#now'); el.classList.add('hidden'); el.classList.remove('flex', 'sheet-in'); }
+function toggleNow(open) {
+  const el = $('#now');
+  if (open === !el.classList.contains('hidden')) return;
+  if (open) { el.classList.remove('hidden'); el.classList.add('flex', 'sheet-in'); hist.openOverlay(hideNow); }
+  else { hideNow(); hist.closeOverlay(hideNow); }
+}
+
+/* ---------- Botón «atrás» ---------- */
+// Cada pantalla es una entrada del historial y cada ventana abierta (menú, diálogo,
+// «Reproduciendo») también, así «atrás» la cierra o vuelve a la pantalla anterior.
+// Debajo de todo hay una entrada «guardia» para que «atrás» en Inicio no cierre la app.
+const hist = {
+  stack: [],
+  openOverlay(close) {
+    this.stack.push(close);
+    history.pushState({ app: 'sonora', view: state.view.name, key: state.view.key, overlay: true }, '');
+  },
+  // La ventana se cerró desde la app (no con «atrás»): su entrada pasa a ser la de la pantalla.
+  closeOverlay(close) {
+    const i = this.stack.lastIndexOf(close);
+    if (i < 0) return;
+    this.stack.splice(i, 1);
+    if (history.state?.overlay) history.replaceState({ app: 'sonora', view: state.view.name, key: state.view.key }, '');
+  },
+};
+window.addEventListener('popstate', e => {
+  if (hist.stack.length) { hist.stack.pop()(); return; }
+  const s = e.state;
+  if (!s || s.app !== 'sonora' || s.guard) {
+    if (state.view.name !== 'home') navigate('home', undefined, false);
+    else toast('Pulsa atrás otra vez para salir');
+    return;
+  }
+  // Entrada repetida de la misma pantalla: seguir retrocediendo.
+  if (s.view === state.view.name && s.key === state.view.key) { history.back(); return; }
+  navigate(s.view, s.key, false);
+});
+// Los navegadores ignoran entradas creadas sin interacción, así que la de Inicio
+// sobre la guardia se vuelve a poner con el siguiente toque o tecla.
+const armHistory = () => {
+  if (history.state?.guard) history.pushState({ app: 'sonora', view: state.view.name, key: state.view.key }, '');
+};
+document.addEventListener('pointerdown', armHistory, true);
+document.addEventListener('keydown', armHistory, true);
+
+/* ---------- Descargas sin conexión ---------- */
+// Se pueden descargar las canciones de tu nube (Supabase) y las de Google Drive.
+const downloadable = t => !!t && ((cloud.active && t.kind === 'cloud') || t.kind === 'gdrive');
+function downloadButton(key, tracks) {
+  const dl = tracks.filter(downloadable);
+  if (!dl.length) return '';
+  const all = dl.every(t => t.offline);
+  return `<button data-act="${all ? 'undownload-list' : 'download-list'}" data-list="${key}"
+    title="${all ? 'Descargada · tocar para quitar la descarga' : 'Descargar para escuchar sin conexión'}"
+    class="ctl ${all ? '!text-accent' : ''} w-10 h-10 grid place-items-center">${icon(all ? 'downloaded' : 'download', 'w-7 h-7')}</button>`;
+}
+async function downloadTracks(ids) {
+  const todo = ids.map(id => state.tracks.get(id)).filter(t => downloadable(t) && !t.offline);
+  if (!todo.length) return toast('Ya está todo descargado');
+  if (!navigator.onLine || (cloud.offline && todo.some(t => t.kind === 'cloud'))) return toast('Necesitas internet para descargar');
+  // Para Drive, pedir la sesión ahora (dentro del toque) por si hay que abrir la ventana de Google.
+  if (todo.some(t => t.kind === 'gdrive')) {
+    try { await drive.getToken(true); } catch (e) { return toast(e.message); }
+  }
+  let done = 0, failed = 0;
+  for (const [i, t] of todo.entries()) {
+    toast(`Descargando ${i + 1} de ${todo.length}…`);
+    try {
+      let blob, coverBlob = null;
+      if (t.kind === 'gdrive') {
+        blob = await drive.blob(t);
+        coverBlob = t.coverUrl ? await fetch(t.coverUrl).then(r => r.blob()).catch(() => null) : null;
+      } else {
+        const res = await fetch(t.url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        blob = await res.blob();
+        coverBlob = t.coverUrl ? await fetch(t.coverUrl).then(r => r.ok ? r.blob() : null).catch(() => null) : null;
+      }
+      await DB.put('offline', { id: t.id, userId: t.kind === 'gdrive' ? 'gdrive' : cloud.user.id, blob, coverBlob });
+      if (t.url?.startsWith('blob:') && current()?.id !== t.id) URL.revokeObjectURL(t.url);
+      t.url = URL.createObjectURL(blob);
+      if (coverBlob) t.coverUrl = URL.createObjectURL(coverBlob);
+      t.offline = true; done++;
+    } catch (e) { console.warn(e); failed++; }
+  }
+  renderAll();
+  toast(failed ? `Descargadas ${done}; ${failed} no se pudieron descargar` : `${countLabel(done)} ${done === 1 ? 'disponible' : 'disponibles'} sin conexión`);
+}
+async function removeDownloads(ids) {
+  const sel = ids.map(id => state.tracks.get(id)).filter(t => t?.offline);
+  if (!sel.length) return;
+  for (const t of sel) { await DB.del('offline', t.id).catch(() => {}); t.offline = false; }
+  // Drive: se vuelve a bajar cuando se reproduzca (la que suena sigue en memoria).
+  for (const t of sel.filter(t => t.kind === 'gdrive')) {
+    if (current()?.id === t.id) drive.remember(t);
+    else { if (t.url?.startsWith('blob:')) URL.revokeObjectURL(t.url); t.url = null; }
+  }
+  const cloudSel = sel.filter(t => t.kind === 'cloud');
+  if (cloudSel.length && cloud.active && !cloud.offline) {
+    const signed = await cloud.sign(cloudSel.flatMap(t => [t.storagePath, t.coverPath]).filter(Boolean)).catch(() => ({}));
+    for (const t of cloudSel) {
+      if (t.url?.startsWith('blob:') && current()?.id !== t.id) URL.revokeObjectURL(t.url);
+      t.url = signed[t.storagePath] || t.url;
+      if (t.coverPath) t.coverUrl = signed[t.coverPath] || t.coverUrl;
+    }
+  }
+  renderAll();
+  toast(sel.length === 1 ? 'Descarga eliminada' : `${sel.length} descargas eliminadas`);
+}
+
+function openCloudPanel() {
+  closeMenu();
+  const cfg = cloud.config();
+  const field = (name, label, type = 'text', ph = '') => `
+    <label class="block"><span class="text-sm text-zinc-300">${label}</span>
+      <input name="${name}" type="${type}" placeholder="${esc(ph)}" required autocomplete="${type === 'password' ? 'current-password' : type === 'email' ? 'username' : 'off'}"
+        class="mt-1 w-full rounded-md bg-white/10 border border-transparent focus:border-zinc-300 outline-none px-3 py-2 select-text"></label>`;
+  const primary = 'px-6 py-2 rounded-full bg-white text-black font-bold hover:scale-105 transition disabled:opacity-50 disabled:hover:scale-100';
+  const ghost = 'px-4 py-2 rounded-full font-bold text-zinc-300 hover:text-white transition';
+  let body;
+  if (!window.supabase) body = `
+    <p class="text-zinc-300">No se pudo cargar Supabase. Revisa tu conexión a internet y vuelve a abrir la app.</p>
+    <div class="flex justify-end"><button type="button" data-c="close" class="${primary}">Entendido</button></div>`;
+  else if (!cfg) body = `
+    <p class="text-sm text-zinc-300">Conecta tu proyecto de Supabase para guardar tu música en la nube y verla en todos tus dispositivos. Encuentras los datos en <span class="text-white">Project Settings → API</span>.</p>
+    ${field('url', 'Project URL', 'url', 'https://xxxx.supabase.co')}
+    ${field('anonKey', 'Clave anon / publishable', 'text', 'eyJhbGciOi… o sb_publishable_…')}
+    <p data-c="err" class="text-sm text-red-400 hidden"></p>
+    <div class="flex justify-end gap-2 pt-1"><button type="button" data-c="close" class="${ghost}">Cancelar</button><button class="${primary}">Guardar</button></div>`;
+  else if (!cloud.active) body = `
+    <p class="text-sm text-zinc-300">Entra con el usuario que creaste en Supabase (Authentication → Users).</p>
+    ${field('email', 'Correo', 'email', 'tu@correo.com')}
+    ${field('password', 'Contraseña', 'password')}
+    <p data-c="err" class="text-sm text-red-400 hidden"></p>
+    <div class="flex items-center justify-between gap-2 pt-1">
+      <button type="button" data-c="reset" class="text-sm text-zinc-400 hover:text-white">Cambiar proyecto</button>
+      <div class="flex gap-2"><button type="button" data-c="close" class="${ghost}">Cancelar</button><button class="${primary}">Entrar</button></div>
+    </div>`;
+  else body = `
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">
+      <span class="w-10 h-10 shrink-0 rounded-full bg-accent text-black grid place-items-center">${icon('cloud', 'w-5 h-5')}</span>
+      <div class="min-w-0"><div class="font-semibold truncate">${esc(cloud.user.email)}</div>
+        <div class="text-sm text-zinc-400">${countLabel(state.tracks.size)} · ${state.playlists.length} playlists en la nube</div></div>
+    </div>
+    <button type="button" data-c="migrate" class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 text-left">
+      <span class="w-5 h-5 shrink-0">${icon('upload')}</span>
+      <span><span class="block font-semibold">Subir mi biblioteca local</span><span class="block text-sm text-zinc-400">Copia a la nube la música y las playlists guardadas en este dispositivo</span></span>
+    </button>
+    <div class="flex items-center justify-between pt-1">
+      <button type="button" data-c="logout" class="text-sm text-zinc-400 hover:text-white">Cerrar sesión</button>
+      <button type="button" data-c="close" class="${primary}">Listo</button>
+    </div>`;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fixed inset-0 z-[55] bg-black/70 grid place-items-center p-4';
+  wrap.innerHTML = `<form class="w-full max-w-sm bg-[#282828] rounded-xl p-6 shadow-2xl space-y-4">
+    <h2 class="text-xl font-bold flex items-center gap-2"><span class="w-6 h-6 text-accent">${icon('cloud')}</span>Nube</h2>${body}</form>`;
+  document.body.appendChild(wrap);
+  const form = wrap.querySelector('form');
+  const dismiss = () => wrap.remove();
+  const close = () => { wrap.remove(); hist.closeOverlay(dismiss); };
+  hist.openOverlay(dismiss);
+  const showErr = msg => { const el = form.querySelector('[data-c=err]'); el.textContent = msg; el.classList.remove('hidden'); };
+  wrap.addEventListener('mousedown', e => { if (e.target === wrap) close(); });
+  wrap.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  form.addEventListener('click', async e => {
+    const c = e.target.closest('[data-c]')?.dataset.c;
+    if (c === 'close') close();
+    else if (c === 'reset') { cloud.reset(); close(); openCloudPanel(); }
+    else if (c === 'migrate') { close(); uploadLocalLibrary(); }
+    else if (c === 'logout') {
+      if (!confirm('¿Cerrar sesión? Volverás a tu biblioteca local de este dispositivo.')) return;
+      close(); await cloud.signOut(); await loadLibrary(); toast('Sesión cerrada');
+    }
+  });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(form));
+    const btn = form.querySelector('button:not([type=button])');
+    btn.disabled = true;
+    try {
+      if (!cfg) {
+        const url = v.url.trim().replace(/\/+$/, '');
+        if (!/^https:\/\/[^/]+$/.test(url)) throw new Error('La URL debe tener la forma https://xxxx.supabase.co');
+        ls.set('sonora-cloud', { url, anonKey: v.anonKey.trim() });
+        if (!cloud.init()) throw new Error('No se pudo conectar con esos datos');
+        close(); openCloudPanel();
+      } else {
+        await cloud.signIn(v.email.trim(), v.password);
+        close(); await loadLibrary(); toast('Conectado a la nube');
+      }
+    } catch (err) {
+      btn.disabled = false;
+      showErr(/invalid login/i.test(err.message) ? 'Correo o contraseña incorrectos' : err.message || 'Algo salió mal');
+    }
+  });
+  form.querySelector('input')?.focus();
+}
+
+// Copia a la nube lo guardado en este dispositivo. Recuerda lo ya subido para no duplicarlo.
+async function uploadLocalLibrary() {
+  if (!cloud.active) return;
+  const [tracks, pls] = await Promise.all([DB.all('tracks').catch(() => []), DB.all('playlists').catch(() => [])]);
+  const map = ls.get('sonora-migrated', {});
+  const todo = tracks
+    .filter(r => !map[r.id] && !(r.kind === 'url' && /soundhelix\.com/.test(r.src)))
+    .sort((a, b) => a.addedAt - b.addedAt);
+  if (!todo.length && pls.every(p => map['pl:' + p.id])) return toast('No hay nada nuevo para subir');
+  let done = 0, failed = 0;
+  for (const [i, r] of todo.entries()) {
+    toast(`Subiendo a la nube ${i + 1} de ${todo.length}…`);
+    const meta = { title: r.title, artist: r.artist, album: r.album, coverBlob: r.coverBlob, duration: r.duration, liked: r.liked, addedAt: r.addedAt };
+    try {
+      let t;
+      if (r.kind === 'file') {
+        if (r.blob.size > CLOUD_MAX_BYTES) throw new Error('Archivo de más de 50 MB');
+        t = await cloud.addFile(r.blob, meta);
+      } else {
+        t = { id: uid(), kind: 'url', src: r.src, url: r.src, coverUrl: null, ...meta, coverBlob: undefined };
+        await cloud.saveTrack(t);
+      }
+      state.tracks.set(t.id, t);
+      map[r.id] = t.id; ls.set('sonora-migrated', map); done++;
+    } catch (e) { console.warn(e); failed++; }
+  }
+  for (const p of pls) {
+    if (map['pl:' + p.id]) continue;
+    const trackIds = p.trackIds.map(id => map[id]).filter(Boolean);
+    if (!trackIds.length) continue;
+    const np = { id: uid(), name: p.name, trackIds, createdAt: p.createdAt };
+    try { await cloud.savePl(np); state.playlists.push(np); map['pl:' + p.id] = np.id; ls.set('sonora-migrated', map); }
+    catch (e) { console.warn(e); failed++; }
+  }
+  renderAll();
+  toast(failed ? `Subidas ${done} canciones; ${failed} elementos fallaron` : `Listo: ${countLabel(done)} subidas a la nube`);
+}
+
+/* ---------- Eventos ---------- */
+const actions = {
+  nav: el => navigate(el.dataset.view, el.dataset.key),
+  'play-list': el => playKey(el.dataset.list),
+  'play-track': el => { const key = el.dataset.list; playQueue(listTracks(key).map(t => t.id), +el.dataset.index, key); },
+  toggle: togglePlay,
+  next: () => next(),
+  prev,
+  shuffle: toggleShuffle,
+  repeat: cycleRepeat,
+  mute: toggleMute,
+  like: el => el.dataset.id && toggleLike(el.dataset.id),
+  more: el => { const r = el.getBoundingClientRect(); openMenu(r.right - 250, r.bottom + 4, trackMenu(el.dataset.id, el.dataset.list)); },
+  'q-next': el => playNext(el.dataset.id),
+  'add-to': el => addToPlaylist(el.dataset.pl, [el.dataset.id]),
+  'new-pl-with': el => createPlaylist([el.dataset.id]),
+  'remove-from': el => removeFromPlaylist(el.dataset.pl, el.dataset.id),
+  'delete-track': el => deleteTrack(el.dataset.id),
+  upload: el => { state.uploadTarget = el.dataset.target || null; $('#file-input').click(); },
+  'add-url': el => addUrl(el.dataset.target),
+  'new-playlist': () => createPlaylist(),
+  'rename-pl': el => renamePlaylist(el.dataset.pl),
+  'delete-pl': el => deletePlaylist(el.dataset.pl),
+  'open-now': () => current() && toggleNow(true),
+  'close-now': () => toggleNow(false),
+  cloud: () => openCloudPanel(),
+  drive: () => openDrivePanel(),
+  'drive-refresh': () => drive.refresh(true),
+  'download-list': el => downloadTracks(listTracks(el.dataset.list).map(t => t.id)),
+  'undownload-list': el => {
+    if (confirm('¿Quitar las descargas de esta lista? Seguirán en la nube.')) removeDownloads(listTracks(el.dataset.list).map(t => t.id));
+  },
+  'download-track': el => downloadTracks([el.dataset.id]),
+  'undownload-track': el => removeDownloads([el.dataset.id]),
+};
+document.addEventListener('click', e => {
+  const inMenu = e.target.closest('#menu');
+  const el = e.target.closest('[data-act]');
+  if (!inMenu) closeMenu();
+  if (!el) return;
+  actions[el.dataset.act]?.(el, e);
+  if (inMenu) closeMenu();
+});
+document.addEventListener('contextmenu', e => {
+  const row = e.target.closest('[data-row]');
+  if (!row) return;
+  e.preventDefault();
+  openMenu(e.clientX, e.clientY, trackMenu(row.dataset.row, row.dataset.list));
+});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'Escape') { closeMenu(); toggleNow(false); }
+  else if (e.key === 'ArrowRight' && e.altKey) next();
+  else if (e.key === 'ArrowLeft' && e.altKey) prev();
+  else if (e.key === 'ArrowRight' && current()) audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+  else if (e.key === 'ArrowLeft' && current()) audio.currentTime = Math.max(0, audio.currentTime - 5);
+});
+$('#main').addEventListener('scroll', closeMenu);
+
+$$('[data-bind=seek]').forEach(el => {
+  el.addEventListener('input', () => {
+    seeking = true;
+    const d = isFinite(audio.duration) ? audio.duration : 0;
+    el.style.setProperty('--p', el.value / 10 + '%');
+    $$('[data-bind=time]').forEach(x => x.textContent = fmt(d * el.value / 1000));
+  });
+  el.addEventListener('change', () => {
+    seeking = false;
+    if (current() && isFinite(audio.duration)) audio.currentTime = audio.duration * el.value / 1000;
+    updateTime();
+  });
+});
+$$('[data-bind=volume]').forEach(el => el.addEventListener('input', () => {
+  const v = el.value / 100;
+  audio.volume = v; audio.muted = v === 0;
+  if (v > 0) lastVolume = v;
+  ls.set('sonora-volume', v);
+  updateVolumeUI();
+}));
+
+$('#file-input').addEventListener('change', e => {
+  handleFiles(e.target.files, state.uploadTarget);
+  e.target.value = ''; state.uploadTarget = null;
+});
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('#drop').classList.replace('hidden', 'grid'); });
+window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; $('#drop').classList.replace('grid', 'hidden'); } });
+window.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; $('#drop').classList.replace('grid', 'hidden');
+  const target = state.view.name === 'playlist' && state.view.key?.startsWith('pl:') ? state.view.key : null;
+  handleFiles(e.dataTransfer.files, target);
+});
+
+/* ---------- Ejemplos e inicio ---------- */
+const SAMPLES = [
+  ['Amanecer eléctrico', 1], ['Ruta nocturna', 2], ['Ciudad de cristal', 3], ['Olas de neón', 4],
+  ['Viento del sur', 5], ['Paralelo 8', 8], ['Marea lenta', 10], ['Último tren', 12],
+].map(([title, n], i) => ({
+  title, artist: 'SoundHelix', album: i < 4 ? 'Ejemplos, vol. 1' : 'Ejemplos, vol. 2',
+  src: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${n}.mp3`
+}));
+async function seed() {
+  const base = Date.now(); const ids = [];
+  for (const [i, s] of SAMPLES.entries()) {
+    const rec = hydrate({ id: uid(), kind: 'url', ...s, coverBlob: null, liked: i === 0 || i === 3, addedAt: base + i, duration: NaN });
+    state.tracks.set(rec.id, rec); ids.push(rec.id);
+    await saveTrack(rec).catch(() => {});
+  }
+  const pls = [
+    { id: uid(), name: 'Canciones de ejemplo', trackIds: ids.slice(), createdAt: base },
+    { id: uid(), name: 'Para concentrarse', trackIds: [ids[2], ids[5], ids[6]], createdAt: base + 1 },
+    { id: uid(), name: 'Mix de la tarde', trackIds: [ids[1], ids[3], ids[7], ids[0]], createdAt: base + 2 },
+  ];
+  state.playlists.push(...pls);
+  for (const p of pls) await savePl(p);
+  ls.set('sonora-seeded', true);
+}
+async function probeMissingDurations() {
+  for (const t of [...state.tracks.values()]) {
+    if (isFinite(t.duration) || !state.tracks.has(t.id) || !t.url) continue; // Drive: se mide al reproducirla
+    const d = await probeDuration(t.url);
+    if (!isFinite(d)) continue;
+    t.duration = d; saveTrack(t).catch(() => {});
+    $$(`[data-dur="${t.id}"]`).forEach(el => el.textContent = fmt(d));
+  }
+  if (state.view.name === 'playlist') renderMain();
+}
+
+function updateCloudUI() {
+  $$('[data-bind=cloud-pill]').forEach(el => {
+    el.title = !cloud.active ? 'Conectar a la nube' : cloud.offline ? 'Sin conexión: solo música descargada' : `En la nube: ${cloud.user.email}`;
+    el.classList.toggle('text-accent', cloud.active && !cloud.offline);
+    el.classList.toggle('text-amber-400', cloud.active && cloud.offline);
+    el.classList.toggle('text-zinc-400', !cloud.active);
+  });
+}
+
+// Carga la biblioteca de la nube si hay sesión; si no, la de este dispositivo.
+async function loadLibrary() {
+  audio.pause(); audio.removeAttribute('src'); audio.load();
+  for (const t of state.tracks.values()) {
+    if (t.url?.startsWith('blob:')) URL.revokeObjectURL(t.url);
+    if (t.coverUrl?.startsWith('blob:')) URL.revokeObjectURL(t.coverUrl);
+  }
+  Object.assign(state, { tracks: new Map(), playlists: [], queue: [], origQueue: [], qi: -1, source: null });
+  if (cloud.active) {
+    try {
+      const { tracks, playlists } = await cloud.load();
+      tracks.forEach(t => state.tracks.set(t.id, t));
+      state.playlists = playlists;
+      if (cloud.offline) toast(tracks.length ? 'Sin conexión: mostrando tu música descargada' : 'Sin conexión y sin canciones descargadas');
+    } catch (e) { console.warn(e); toast('No se pudo cargar tu música de la nube. ¿Hay conexión?'); }
+  } else {
+    const [tracks, pls] = await Promise.all([DB.all('tracks').catch(() => []), DB.all('playlists').catch(() => [])]);
+    tracks.forEach(r => state.tracks.set(r.id, hydrate(r)));
+    state.playlists = pls.sort((a, b) => a.createdAt - b.createdAt);
+    if (!ls.get('sonora-seeded', false) && !tracks.length && !pls.length && !drive.enabled) await seed();
+  }
+  await drive.merge().catch(e => console.warn(e));
+  updateNowPlaying(); updatePlayIcons(); updateCloudUI();
+  navigate(state.view.name === 'playlist' ? 'home' : state.view.name, undefined, false);
+  probeMissingDurations();
+  // Con la sesión de Google aún vigente, busca canciones nuevas en Drive sin preguntar.
+  if (drive.enabled && drive.connected && navigator.onLine) drive.refresh(false);
+}
+
+(async function init() {
+  history.replaceState({ app: 'sonora', guard: true }, '');
+  paintIcons();
+  updatePlayIcons(); updateModes(); updateVolumeUI(); updateNowPlaying();
+  try { await DB.open(); } catch (e) { console.warn(e); toast('Sin almacenamiento: tu música no se guardará al cerrar'); }
+  if (cloud.init()) await cloud.restore().catch(e => console.warn(e));
+  drive.restore();
+  await loadLibrary();
+  navigator.storage?.persist?.().catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+
+// Al volver la conexión, sincroniza con la nube (sin cortar lo que esté sonando).
+window.addEventListener('online', async () => {
+  if (!cloud.client || !cloud.offline) {
+    // Solo Drive: vuelve a mostrar las canciones que no estaban descargadas.
+    if (drive.enabled && audio.paused) { await drive.remerge(); if (drive.connected) drive.refresh(false); }
+    return;
+  }
+  if (!audio.paused) return toast('Conexión recuperada: recarga para ver toda tu música');
+  await cloud.restore().catch(() => {});
+  await loadLibrary();
+  toast('Conexión recuperada');
+});
+</script>
+</body>
+</html>
